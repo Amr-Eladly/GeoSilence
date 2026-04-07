@@ -1,0 +1,34 @@
+# Visual Studio/Rider
+.vs/
+.idea/
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+bin/
+obj/
+*.dll
+*.exe
+*.o
+*.so
+
+# IDE specific files
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# NuGet
+*.nupkg
+.nuget/
+
+# User-specific files
+*.sln.user
+GeoSilence.csproj.user
