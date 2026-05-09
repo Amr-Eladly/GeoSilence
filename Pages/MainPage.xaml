@@ -2,45 +2,105 @@
 <ContentPage  
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"  
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"  
-    xmlns:pageModels="clr-namespace:GeoSilence.PageModels"  
+    xmlns:pageModels="clr-namespace:GeoSilence.PageModels" 
+    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    xmlns:conv="clr-namespace:GeoSilence.Converters"
     xmlns:models="clr-namespace:GeoSilence.Models"
     x:Class="GeoSilence.Pages.MainPage"  
     x:DataType="pageModels:HomeViewModel"
     Title="GeoSilence">
 
-    <VerticalStackLayout Padding="20" Spacing="15">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
-        <Label 
+    <Grid>
+
+        <!-- MAP (background) -->
+        <maps:Map 
+        x:Name="MainMap"
+        IsShowingUser="True"
+        MapClicked="OnMapClicked"/>
+
+        <!-- Bottom Panel -->
+        <VerticalStackLayout
+        BackgroundColor="White"
+        Padding="15"
+        Spacing="10"
+        VerticalOptions="End">
+
+            <Label 
             Text="Places Near Me"
-            FontSize="24"
+            FontSize="20"
             FontAttributes="Bold" />
 
-        <CollectionView ItemsSource="{Binding NearbyPlaces}">
-            <CollectionView.ItemTemplate>
+            <CollectionView ItemsSource="{Binding NearbyPlaces}"
+                SelectionMode="None">
 
-                <DataTemplate x:DataType="models:Place">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Place">
 
-                    <Frame Padding="10" Margin="5">
-                        <HorizontalStackLayout Spacing="10">
+                        <SwipeView>
 
-                            <Label 
-                        Text="{Binding Name}"
-                        FontSize="18"
-                        VerticalOptions="Center" />
+                            <SwipeView.RightItems>
+                                <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
 
-                            <Label 
-                        Text="{Binding Mode}"
-                        TextColor="Gray"
-                        VerticalOptions="Center" />
+                                    <!-- DELETE -->
+                                    <SwipeItem BackgroundColor="Red"
+                   CommandParameter="{Binding .}"
+                   Invoked="OnDeleteSwipe">
+                                        <SwipeItem.IconImageSource>
+                                            <FontImageSource 
+                    Glyph="🗑"
+                    Size="20"/>
+                                        </SwipeItem.IconImageSource>
+                                    </SwipeItem>
 
-                        </HorizontalStackLayout>
-                    </Frame>
+                                    <!-- EDIT -->
+                                    <SwipeItem BackgroundColor="Yellow"
+                   CommandParameter="{Binding .}"
+                   Invoked="OnEditSwipe">
+                                        <SwipeItem.IconImageSource>
+                                            <FontImageSource 
+                    Glyph="⚙️"
+                    Size="20"/>
+                                        </SwipeItem.IconImageSource>
+                                    </SwipeItem>
 
-                </DataTemplate>
+                                </SwipeItems>
+                            </SwipeView.RightItems>
 
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                            <!-- CARD -->
+                            <Frame Padding="10" Margin="5">
+                                <HorizontalStackLayout Spacing="10">
 
-    </VerticalStackLayout>
+                                    <Label 
+                            Text="{Binding Name}"
+                            FontSize="16" />
+
+                                    <Label 
+                            Text="{Binding DistanceFormatted}"
+                            TextColor="Gray"
+                            FontSize="12" />
+
+                                    <Label 
+                            Text="{Binding Mode}"
+                            TextColor="Gray" />
+
+                                </HorizontalStackLayout>
+                            </Frame>
+
+                        </SwipeView>
+
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+
+        </VerticalStackLayout>
+
+    </Grid>
 
 </ContentPage>

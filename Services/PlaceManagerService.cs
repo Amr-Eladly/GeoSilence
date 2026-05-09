@@ -15,12 +15,18 @@ namespace GeoSilence.Services
         {
             _distanceService = distanceService;
         }
-
         public List<Place> GetNearbyPlaces(Models.Location location, List<Place> places)
         {
             return places
                 .Where(p => p.IsActive)
-                .OrderBy(p => _distanceService.CalculateMeters(location, p))
+                .Select(p => new
+                {
+                    Place = p,
+                    Distance = _distanceService.CalculateMeters(location, p)
+                })
+                .Where(x => x.Distance <= x.Place.Radius)
+                .OrderBy(x => x.Distance)
+                .Select(x => x.Place)
                 .ToList();
         }
     }

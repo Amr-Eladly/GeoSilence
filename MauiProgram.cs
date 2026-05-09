@@ -1,5 +1,7 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using Microsoft.Maui.Controls.Maps;
+using Microsoft.Maui.Maps;
 
 namespace GeoSilence
 {
@@ -18,6 +20,7 @@ namespace GeoSilence
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
+            builder.UseMauiMaps();
 #if DEBUG
             builder.Logging.AddDebug();
 #endif
@@ -30,6 +33,8 @@ namespace GeoSilence
             builder.Services.AddSingleton<HomeViewModel>();
             builder.Services.AddSingleton<MainPage>();
             builder.Services.AddSingleton<AppShell>();
+            builder.Services.AddSingleton<DatabaseService>();
+            builder.Services.AddSingleton<PlaceRepository>();
 
             return builder.Build();
         }

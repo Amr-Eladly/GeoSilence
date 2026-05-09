@@ -1,47 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using GeoSilence.Models;
+﻿using GeoSilence.Models;
+using Microsoft.Maui.Devices.Sensors;
 
 namespace GeoSilence.Services
 {
     public class LocationService
     {
-        //public async Task<Models.Location?> GetCurrentLocationAsync()
-        //{
-        //    try
-        //    {
-        //        var request = new GeolocationRequest(
-        //            GeolocationAccuracy.Medium,
-        //            TimeSpan.FromSeconds(5));
-
-        //        var response = await Geolocation.GetLocationAsync(request);
-
-        //        if (response == null)
-        //            return null;
-
-        //        return new Models.Location
-        //        {
-        //            Latitude = response.Latitude,
-        //            Longitude = response.Longitude
-        //        };
-        //    }
-        //    catch
-        //    {
-        //        return null;
-        //    }
-        //}
         public async Task<Models.Location?> GetCurrentLocationAsync()
         {
-            await Task.Delay(100);
-
-            return new Models.Location
+            try
             {
-                Latitude = 47.4979,
-                Longitude = 19.0402
-            };
+                // 🔹 Check permission
+                var status = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
+
+                if (status != PermissionStatus.Granted)
+                {
+                    status = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
+                }
+
+                if (status != PermissionStatus.Granted)
+                    return null;
+
+                // 🔹 Get location
+                var request = new GeolocationRequest(
+                    GeolocationAccuracy.Medium,
+                    TimeSpan.FromSeconds(5));
+
+                var response = await Geolocation.GetLocationAsync(request);
+
+                if (response == null)
+                    return null;
+
+                return new Models.Location
+                {
+                    Latitude = response.Latitude,
+                    Longitude = response.Longitude
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"GPS ERROR: {ex.Message}");
+                return null;
+            }
         }
     }
 }
