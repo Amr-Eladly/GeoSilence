@@ -105,7 +105,8 @@ namespace GeoSilence.Services
 
             if (activePlaces.Count == 0)
             {
-                GeoLog.Write("REG", "No active places — done");
+                GeoLog.Write("REG", "No active places — stopping heartbeat");
+                LocationHeartbeatService.Stop(context);
                 return;
             }
 
@@ -138,6 +139,12 @@ namespace GeoSilence.Services
             {
                 await ToTaskAsync(client.AddGeofences(requestBuilder.Build(), pendingIntent));
                 GeoLog.Write("REG", $"SUCCESS: {activePlaces.Count} geofence(s) registered");
+
+                // Start the location heartbeat so FusedLocationProvider keeps
+                // producing fixes for Play Services to evaluate against.
+                // Without this, geofences are only checked when SOME OTHER app
+                // requests location (Maps, weather, etc).
+                LocationHeartbeatService.Start(context);
             }
             catch (ApiException ex)
             {
