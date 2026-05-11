@@ -8,18 +8,19 @@ using Android.Content.PM;
 using Android.Gms.Common;
 using Android.Gms.Common.Apis;
 using Android.Gms.Location;
-using Android.Gms.Tasks;
 using Android.Locations;
 using Android.OS;
 using AndroidX.Core.Content;
 using GeoSilence.Platforms.Droid;
+using GmsTask = Android.Gms.Tasks.Task;
+using IGmsOnCompleteListener = Android.Gms.Tasks.IOnCompleteListener;
 #endif
 
 namespace GeoSilence.Services
 {
     public class BackgroundGeofenceService
     {
-        public async Task RegisterPlacesAsync(IEnumerable<Place> places)
+        public async System.Threading.Tasks.Task RegisterPlacesAsync(IEnumerable<Place> places)
         {
 #if ANDROID
             try
@@ -31,12 +32,12 @@ namespace GeoSilence.Services
                 GeoLog.Error("REG", ex);
             }
 #else
-            await Task.CompletedTask;
+            await System.Threading.Tasks.Task.CompletedTask;
 #endif
         }
 
 #if ANDROID
-        private static async Task RegisterAndroidAsync(IEnumerable<Place> places)
+        private static async System.Threading.Tasks.Task RegisterAndroidAsync(IEnumerable<Place> places)
         {
             var context = Android.App.Application.Context;
 
@@ -150,7 +151,7 @@ namespace GeoSilence.Services
         }
 
         // Bridge Android Gms Task -> .NET Task
-        private static Task ToTaskAsync(Android.Gms.Tasks.Task gmsTask)
+        private static System.Threading.Tasks.Task ToTaskAsync(GmsTask gmsTask)
         {
             var tcs = new TaskCompletionSource<bool>();
             var listener = new TaskCompletionListener(tcs);
@@ -159,7 +160,7 @@ namespace GeoSilence.Services
         }
 
         private sealed class TaskCompletionListener : Java.Lang.Object,
-            IOnCompleteListener
+            IGmsOnCompleteListener
         {
             private readonly TaskCompletionSource<bool> _tcs;
 
@@ -168,7 +169,7 @@ namespace GeoSilence.Services
                 _tcs = tcs;
             }
 
-            public void OnComplete(Android.Gms.Tasks.Task task)
+            public void OnComplete(GmsTask task)
             {
                 if (task.IsSuccessful)
                     _tcs.TrySetResult(true);
