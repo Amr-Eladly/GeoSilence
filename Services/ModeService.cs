@@ -11,6 +11,7 @@ using Android.Content;
 using Android.Media;
 using Android.OS;
 using Android.Provider;
+using GeoSilence.Platforms.Droid;
 #endif
 
 namespace GeoSilence.Services
@@ -57,8 +58,7 @@ namespace GeoSilence.Services
                     _originalMode.InterruptionFilter.Value);
             }
 
-            System.Diagnostics.Debug.WriteLine(
-                $"Restored original RingerMode: {_originalMode.RingerMode}");
+            GeoLog.Write("MODE", $"restored original ringer={_originalMode.RingerMode}");
 
             _originalMode = null;
             ClearOriginalMode();
@@ -76,27 +76,18 @@ namespace GeoSilence.Services
 
             var (audioManager, notificationManager) = managers.Value;
 
-            // Check DND / Notification Policy permission
+            // Check DND / Notification Policy permission. From a background
+            // BroadcastReceiver context we MUST NOT call StartActivity for
+            // settings — Android 14+ blocks non-Activity Activity launches and
+            // it's hostile UX besides. Just log and bail; the user grants this
+            // once on first foreground launch (handled by MainActivity).
             if (!notificationManager.IsNotificationPolicyAccessGranted)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    "DND permission NOT granted");
-
-                Intent intent =
-                    new Intent(Settings.ActionNotificationPolicyAccessSettings);
-
-                intent.AddFlags(ActivityFlags.NewTask);
-
-                Android.App.Application.Context.StartActivity(intent);
-
+                GeoLog.Write("MODE", "ABORT: DND/Notification Policy access not granted");
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine(
-                $"RingerMode BEFORE switch: {audioManager.RingerMode}");
-
-            System.Diagnostics.Debug.WriteLine(
-                $"Switching to {mode}");
+            GeoLog.Write("MODE", $"applying mode={mode} ringerBefore={audioManager.RingerMode}");
 
             switch (mode)
             {
@@ -145,8 +136,7 @@ namespace GeoSilence.Services
                     break;
             }
 
-            System.Diagnostics.Debug.WriteLine(
-                $"RingerMode AFTER switch: {audioManager.RingerMode}");
+            GeoLog.Write("MODE", $"done mode={mode} ringerAfter={audioManager.RingerMode}");
 
 #endif
         }
@@ -173,9 +163,7 @@ namespace GeoSilence.Services
 
             if (audioManager == null || notificationManager == null)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    "AudioManager or NotificationManager is null");
-
+                GeoLog.Write("MODE", "ABORT: AudioManager or NotificationManager null");
                 return null;
             }
 
@@ -209,8 +197,7 @@ namespace GeoSilence.Services
 
             SaveOriginalMode(_originalMode);
 
-            System.Diagnostics.Debug.WriteLine(
-                $"Captured original RingerMode: {_originalMode.RingerMode}");
+            GeoLog.Write("MODE", $"captured original ringer={_originalMode.RingerMode}");
         }
 
         private static void SaveOriginalMode(AndroidModeState mode)
