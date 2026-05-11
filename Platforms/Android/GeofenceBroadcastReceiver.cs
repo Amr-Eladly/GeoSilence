@@ -123,6 +123,19 @@ namespace GeoSilence
                 return;
             }
 
+            // Defensive: drop any activeIds that don't correspond to a real
+            // place in the DB. Without this, a phantom id from a deleted
+            // place keeps activeIds.Count > 0 and prevents mode restoration.
+            var validDbIds = places.Select(p => p.Id.ToString()).ToHashSet();
+            var stale = activeIds.Where(id => !validDbIds.Contains(id)).ToList();
+            if (stale.Count > 0)
+            {
+                foreach (var id in stale)
+                    activeIds.Remove(id);
+                SaveActiveIds(context, activeIds);
+                GeoLog.Write("RX", $"dropped stale activeIds=[{string.Join(",", stale)}]; now [{string.Join(",", activeIds)}]");
+            }
+
             var modeService = new ModeService();
 
             if (transition == Geofence.GeofenceTransitionEnter)

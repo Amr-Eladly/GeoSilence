@@ -85,6 +85,12 @@ namespace GeoSilence.Services
 
             GeoLog.Write("REG", $"Registering {activePlaces.Count} place(s)");
 
+            // Prune any stale entries in the activeIds prefs that no longer
+            // correspond to a registered place. Without this, a deleted place
+            // leaves a phantom id behind that prevents mode restoration on
+            // exit (because activeIds.Count never reaches 0).
+            PruneStaleActiveIds(context, activePlaces.Select(p => p.Id.ToString()).ToHashSet());
+
             var client = LocationServices.GetGeofencingClient(context);
             var pendingIntent = GetGeofencePendingIntent(context);
 
@@ -196,6 +202,31 @@ namespace GeoSilence.Services
             13   => "ERROR — generic, often background-location not granted",
             _    => "see CommonStatusCodes / GeofenceStatusCodes"
         };
+
+        private static void PruneStaleActiveIds(Context context, HashSet<string> validIds)
+        {
+            const string ActivePrefsName = "GeoSilenceActiveGeofences";
+            const string ActiveIdsKey = "ActiveIds";
+
+            var prefs = context.GetSharedPreferences(ActivePrefsName, FileCreationMode.Private);
+            if (prefs == null)
+                return;
+
+            var raw = prefs.GetString(ActiveIdsKey, string.Empty) ?? string.Empty;
+            var current = raw.Split('|', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+
+            var pruned = current.Where(id => validIds.Contains(id)).ToHashSet();
+
+            if (pruned.Count == current.Count)
+                return;
+
+            var dropped = current.Except(pruned);
+            GeoLog.Write("REG", $"Pruning stale activeIds: dropped=[{string.Join(",", dropped)}] kept=[{string.Join(",", pruned)}]");
+
+            prefs.Edit()!
+                .PutString(ActiveIdsKey, string.Join("|", pruned))
+                .Apply();
+        }
 
         internal static PendingIntent GetGeofencePendingIntent(Context context)
         {
