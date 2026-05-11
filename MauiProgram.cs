@@ -29,6 +29,7 @@ namespace GeoSilence
             builder.Services.AddSingleton<GeofencingService>();
             builder.Services.AddSingleton<LocationService>();
             builder.Services.AddSingleton<ModeService>();
+            builder.Services.AddSingleton<BackgroundGeofenceService>();
             builder.Services.AddSingleton<PlaceManagerService>();
             builder.Services.AddSingleton<HomeViewModel>();
             builder.Services.AddSingleton<MainPage>();

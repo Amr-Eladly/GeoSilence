@@ -20,6 +20,16 @@ namespace GeoSilence.Services
                 if (status != PermissionStatus.Granted)
                     return null;
 
+#if ANDROID
+                var backgroundStatus =
+                    await Permissions.CheckStatusAsync<Permissions.LocationAlways>();
+
+                if (backgroundStatus != PermissionStatus.Granted)
+                {
+                    await Permissions.RequestAsync<Permissions.LocationAlways>();
+                }
+#endif
+
                 // 🔹 Get location
                 var request = new GeolocationRequest(
                     GeolocationAccuracy.Medium,

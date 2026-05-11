@@ -8,7 +8,7 @@
     xmlns:models="clr-namespace:GeoSilence.Models"
     x:Class="GeoSilence.Pages.MainPage"  
     x:DataType="pageModels:HomeViewModel"
-    Title="GeoSilence">
+    Shell.NavBarIsVisible="False">
 
     <ContentPage.Resources>
         <ResourceDictionary>
@@ -24,82 +24,251 @@
         IsShowingUser="True"
         MapClicked="OnMapClicked"/>
 
-        <!-- Bottom Panel -->
-        <VerticalStackLayout
-        BackgroundColor="White"
-        Padding="15"
-        Spacing="10"
-        VerticalOptions="End">
+        <Grid
+            x:Name="SearchPanel"
+            ColumnDefinitions="*,Auto"
+            ColumnSpacing="8"
+            Margin="10,8,68,0"
+            HeightRequest="48"
+            VerticalOptions="Start"
+            ZIndex="1">
 
-            <Label 
-            Text="Places Near Me"
-            FontSize="20"
-            FontAttributes="Bold" />
+            <Border
+                BackgroundColor="White"
+                Stroke="#E0E0E0"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 8"
+                HeightRequest="48">
 
-            <CollectionView ItemsSource="{Binding NearbyPlaces}"
-                SelectionMode="None">
+                <SearchBar
+                    x:Name="PlaceSearchBar"
+                    Placeholder="Search place..."
+                    SearchButtonPressed="OnSearchSubmitted"
+                    BackgroundColor="Transparent"
+                    TextColor="Black"
+                    PlaceholderColor="Gray"
+                    CancelButtonColor="Gray"
+                    FontSize="13"
+                    HeightRequest="48"/>
+            </Border>
 
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:Place">
+            <Button
+                x:Name="AddSearchResultButton"
+                Grid.Column="1"
+                Text="Add"
+                IsVisible="False"
+                Clicked="OnAddSearchResultClicked"
+                BackgroundColor="White"
+                TextColor="Black"
+                Padding="16,0"/>
+        </Grid>
 
-                        <SwipeView>
+        <Frame
+            x:Name="PlacesBottomSheet"
+            Margin="0"
+            Padding="16,10,16,14"
+            BackgroundColor="White"
+            CornerRadius="24"
+            HasShadow="True"
+            HeightRequest="160"
+            VerticalOptions="End"
+            ZIndex="1">
 
-                            <SwipeView.RightItems>
-                                <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
+            <Frame.GestureRecognizers>
+                <PanGestureRecognizer PanUpdated="OnBottomSheetPanUpdated"/>
+            </Frame.GestureRecognizers>
 
-                                    <!-- DELETE -->
-                                    <SwipeItem BackgroundColor="Red"
-                   CommandParameter="{Binding .}"
-                   Invoked="OnDeleteSwipe">
-                                        <SwipeItem.IconImageSource>
-                                            <FontImageSource 
-                    Glyph="🗑"
-                    Size="20"/>
-                                        </SwipeItem.IconImageSource>
-                                    </SwipeItem>
+            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+                <BoxView
+                    x:Name="BottomSheetHandle"
+                    WidthRequest="42"
+                    HeightRequest="4"
+                    CornerRadius="2"
+                    BackgroundColor="#D0D0D0"
+                    HorizontalOptions="Center">
+                    <BoxView.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnBottomSheetHandleTapped"/>
+                    </BoxView.GestureRecognizers>
+                </BoxView>
 
-                                    <!-- EDIT -->
-                                    <SwipeItem BackgroundColor="Yellow"
-                   CommandParameter="{Binding .}"
-                   Invoked="OnEditSwipe">
-                                        <SwipeItem.IconImageSource>
-                                            <FontImageSource 
-                    Glyph="⚙️"
-                    Size="20"/>
-                                        </SwipeItem.IconImageSource>
-                                    </SwipeItem>
+                <Label
+                    Grid.Row="1"
+                    Text="Places Near Me"
+                    FontSize="18"
+                    FontAttributes="Bold"/>
 
-                                </SwipeItems>
-                            </SwipeView.RightItems>
+                <CollectionView
+                    Grid.Row="2"
+                    ItemsSource="{Binding NearbyPlaces}"
+                    SelectionMode="None">
 
-                            <!-- CARD -->
-                            <Frame Padding="10" Margin="5">
-                                <HorizontalStackLayout Spacing="10">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Place">
 
-                                    <Label 
-                            Text="{Binding Name}"
-                            FontSize="16" />
+                            <SwipeView>
 
-                                    <Label 
-                            Text="{Binding DistanceFormatted}"
-                            TextColor="Gray"
-                            FontSize="12" />
+                                <SwipeView.RightItems>
+                                    <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
 
-                                    <Label 
-                            Text="{Binding Mode}"
-                            TextColor="Gray" />
+                                        <SwipeItemView
+                                            CommandParameter="{Binding .}"
+                                            Invoked="OnDeleteSwipe">
+                                            <Grid
+                                                WidthRequest="56"
+                                                BackgroundColor="#D92D20">
+                                                <Label
+                                                    Text="🗑"
+                                                    FontSize="16"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Center"/>
+                                            </Grid>
+                                        </SwipeItemView>
 
-                                </HorizontalStackLayout>
-                            </Frame>
+                                        <SwipeItemView
+                                            CommandParameter="{Binding .}"
+                                            Invoked="OnEditSwipe">
+                                            <Grid
+                                                WidthRequest="56"
+                                                BackgroundColor="#2563EB">
+                                                <Label
+                                                    Text="⚙"
+                                                    FontSize="16"
+                                                    TextColor="White"
+                                                    HorizontalOptions="Center"
+                                                    VerticalOptions="Center"/>
+                                            </Grid>
+                                        </SwipeItemView>
 
-                        </SwipeView>
+                                    </SwipeItems>
+                                </SwipeView.RightItems>
 
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
+                                <Grid
+                                    Padding="4,10"
+                                    ColumnDefinitions="*,Auto"
+                                    RowDefinitions="Auto,Auto">
 
-            </CollectionView>
+                                    <Label
+                                        Text="{Binding Name}"
+                                        FontSize="16"
+                                        LineBreakMode="TailTruncation"/>
 
-        </VerticalStackLayout>
+                                    <Label
+                                        Grid.Column="1"
+                                        Text="{Binding Mode}"
+                                        TextColor="Gray"
+                                        FontSize="13"/>
+
+                                    <Label
+                                        Grid.Row="1"
+                                        Text="{Binding DistanceFormatted}"
+                                        TextColor="Gray"
+                                        FontSize="12"/>
+
+                                    <Label
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        Text="{Binding Radius, StringFormat='{0:F0} m'}"
+                                        TextColor="Gray"
+                                        FontSize="12"/>
+                                </Grid>
+
+                            </SwipeView>
+
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+
+                </CollectionView>
+            </Grid>
+        </Frame>
+
+        <Grid
+            x:Name="PlaceFormOverlay"
+            IsVisible="False"
+            InputTransparent="False"
+            BackgroundColor="#66000000"
+            ZIndex="10">
+
+            <Frame
+                x:Name="PlaceFormCard"
+                Margin="20,20,20,184"
+                Padding="18"
+                BackgroundColor="White"
+                CornerRadius="20"
+                HasShadow="True"
+                VerticalOptions="End">
+
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        x:Name="PlaceFormTitle"
+                        Text="Add Place"
+                        FontSize="20"
+                        FontAttributes="Bold"/>
+
+                    <Entry
+                        x:Name="PlaceNameEntry"
+                        Placeholder="Place name"
+                        Focused="OnPlaceFormInputFocused"
+                        Unfocused="OnPlaceFormInputUnfocused"
+                        BackgroundColor="White"
+                        TextColor="Black"/>
+
+                    <VerticalStackLayout Spacing="0">
+                        <Button
+                            x:Name="PlaceModeButton"
+                            Text="Silent"
+                            Clicked="OnModeDropdownClicked"
+                            BackgroundColor="White"
+                            BorderColor="#DDDDDD"
+                            BorderWidth="1"
+                            TextColor="Black"
+                            HorizontalOptions="Fill"/>
+
+                        <VerticalStackLayout
+                            x:Name="PlaceModeDropdown"
+                            IsVisible="False"
+                            BackgroundColor="White">
+                            <Button
+                                Text="Silent"
+                                Clicked="OnModeOptionClicked"
+                                BackgroundColor="#F7F7F7"
+                                TextColor="Black"/>
+                            <Button
+                                Text="Vibrate"
+                                Clicked="OnModeOptionClicked"
+                                BackgroundColor="#F7F7F7"
+                                TextColor="Black"/>
+                            <Button
+                                Text="Normal"
+                                Clicked="OnModeOptionClicked"
+                                BackgroundColor="#F7F7F7"
+                                TextColor="Black"/>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <Entry
+                        x:Name="PlaceRadiusEntry"
+                        Placeholder="Radius in meters"
+                        Keyboard="Numeric"
+                        Focused="OnPlaceFormInputFocused"
+                        Unfocused="OnPlaceFormInputUnfocused"
+                        BackgroundColor="White"
+                        TextColor="Black"/>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            Text="Cancel"
+                            Clicked="OnCancelPlaceFormClicked"
+                            BackgroundColor="#EEEEEE"
+                            TextColor="Black"/>
+
+                        <Button
+                            Grid.Column="1"
+                            Text="Save"
+                            Clicked="OnSavePlaceFormClicked"/>
+                    </Grid>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
 
     </Grid>
 

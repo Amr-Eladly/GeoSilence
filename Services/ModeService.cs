@@ -17,27 +17,64 @@ namespace GeoSilence.Services
 {
     public class ModeService
     {
+        public void ApplyZoneMode(ModeType mode)
+        {
+#if ANDROID
+            CaptureOriginalMode();
+#endif
+            SetMode(mode);
+        }
+
+        public void RestoreOriginalMode()
+        {
+#if ANDROID
+            _originalMode ??= ReadOriginalMode();
+
+            if (_originalMode == null)
+                return;
+
+            var managers = GetManagers();
+
+            if (managers == null)
+                return;
+
+            var (audioManager, notificationManager) = managers.Value;
+
+            if (_originalMode.InterruptionFilter.HasValue &&
+                _originalMode.InterruptionFilter.Value != InterruptionFilter.None)
+            {
+                SetInterruptionFilter(
+                    notificationManager,
+                    _originalMode.InterruptionFilter.Value);
+            }
+
+            audioManager.RingerMode = _originalMode.RingerMode;
+
+            if (_originalMode.InterruptionFilter.HasValue)
+            {
+                SetInterruptionFilter(
+                    notificationManager,
+                    _originalMode.InterruptionFilter.Value);
+            }
+
+            System.Diagnostics.Debug.WriteLine(
+                $"Restored original RingerMode: {_originalMode.RingerMode}");
+
+            _originalMode = null;
+            ClearOriginalMode();
+#endif
+        }
+
         public void SetMode(ModeType mode)
         {
 #if ANDROID
 
-            var context =Android.App.Application.Context;
+            var managers = GetManagers();
 
-            var audioManager =
-                context.GetSystemService(Context.AudioService)
-                as AudioManager;
-
-            var notificationManager =
-                context.GetSystemService(Context.NotificationService)
-                as NotificationManager;
-
-            if (audioManager == null || notificationManager == null)
-            {
-                System.Diagnostics.Debug.WriteLine(
-                    "AudioManager or NotificationManager is null");
-
+            if (managers == null)
                 return;
-            }
+
+            var (audioManager, notificationManager) = managers.Value;
 
             // Check DND / Notification Policy permission
             if (!notificationManager.IsNotificationPolicyAccessGranted)
@@ -50,7 +87,7 @@ namespace GeoSilence.Services
 
                 intent.AddFlags(ActivityFlags.NewTask);
 
-                context.StartActivity(intent);
+                Android.App.Application.Context.StartActivity(intent);
 
                 return;
             }
@@ -115,6 +152,122 @@ namespace GeoSilence.Services
         }
 
 #if ANDROID
+        private AndroidModeState? _originalMode;
+
+        private const string ModePrefsName = "GeoSilenceModeState";
+        private const string HasOriginalModeKey = "HasOriginalMode";
+        private const string OriginalRingerModeKey = "OriginalRingerMode";
+        private const string OriginalInterruptionFilterKey = "OriginalInterruptionFilter";
+
+        private static (AudioManager AudioManager, NotificationManager NotificationManager)? GetManagers()
+        {
+            var context = Android.App.Application.Context;
+
+            var audioManager =
+                context.GetSystemService(Context.AudioService)
+                as AudioManager;
+
+            var notificationManager =
+                context.GetSystemService(Context.NotificationService)
+                as NotificationManager;
+
+            if (audioManager == null || notificationManager == null)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "AudioManager or NotificationManager is null");
+
+                return null;
+            }
+
+            return (audioManager, notificationManager);
+        }
+
+        private void CaptureOriginalMode()
+        {
+            if (_originalMode != null)
+                return;
+
+            _originalMode = ReadOriginalMode();
+
+            if (_originalMode != null)
+                return;
+
+            var managers = GetManagers();
+
+            if (managers == null)
+                return;
+
+            var (audioManager, notificationManager) = managers.Value;
+
+            _originalMode = new AndroidModeState
+            {
+                RingerMode = audioManager.RingerMode,
+                InterruptionFilter = Build.VERSION.SdkInt >= BuildVersionCodes.M
+                    ? notificationManager.CurrentInterruptionFilter
+                    : null
+            };
+
+            SaveOriginalMode(_originalMode);
+
+            System.Diagnostics.Debug.WriteLine(
+                $"Captured original RingerMode: {_originalMode.RingerMode}");
+        }
+
+        private static void SaveOriginalMode(AndroidModeState mode)
+        {
+            var prefs = Android.App.Application.Context.GetSharedPreferences(
+                ModePrefsName,
+                FileCreationMode.Private);
+
+            prefs!
+                .Edit()!
+                .PutBoolean(HasOriginalModeKey, true)
+                .PutInt(OriginalRingerModeKey, (int)mode.RingerMode)
+                .PutInt(
+                    OriginalInterruptionFilterKey,
+                    mode.InterruptionFilter.HasValue
+                        ? (int)mode.InterruptionFilter.Value
+                        : -1)
+                .Apply();
+        }
+
+        private static AndroidModeState? ReadOriginalMode()
+        {
+            var prefs = Android.App.Application.Context.GetSharedPreferences(
+                ModePrefsName,
+                FileCreationMode.Private);
+
+            if (prefs == null ||
+                !prefs.GetBoolean(HasOriginalModeKey, false))
+                return null;
+
+            var filterValue = prefs.GetInt(OriginalInterruptionFilterKey, -1);
+
+            return new AndroidModeState
+            {
+                RingerMode = (RingerMode)prefs.GetInt(
+                    OriginalRingerModeKey,
+                    (int)RingerMode.Normal),
+                InterruptionFilter = filterValue >= 0
+                    ? (InterruptionFilter)filterValue
+                    : null
+            };
+        }
+
+        private static void ClearOriginalMode()
+        {
+            var prefs = Android.App.Application.Context.GetSharedPreferences(
+                ModePrefsName,
+                FileCreationMode.Private);
+
+            prefs!
+                .Edit()!
+                .Remove(HasOriginalModeKey)
+                .Remove(OriginalRingerModeKey)
+                .Remove(OriginalInterruptionFilterKey)
+                .Apply();
+        }
+
         private static void SetInterruptionFilter(
             NotificationManager notificationManager,
             InterruptionFilter filter)
@@ -126,6 +279,12 @@ namespace GeoSilence.Services
                 return;
 
             notificationManager.SetInterruptionFilter(filter);
+        }
+
+        private sealed class AndroidModeState
+        {
+            public RingerMode RingerMode { get; init; }
+            public InterruptionFilter? InterruptionFilter { get; init; }
         }
 #endif
     }

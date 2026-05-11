@@ -10,6 +10,7 @@ namespace GeoSilence.PageModels
         private readonly LocationService _locationService;
         private readonly GeofencingService _geoService;
         private readonly ModeService _modeService;
+        private readonly BackgroundGeofenceService _backgroundGeofenceService;
         private readonly PlaceRepository _repo;
 
         private CancellationTokenSource? _cts;
@@ -17,6 +18,13 @@ namespace GeoSilence.PageModels
         private const string USER_ID = "local_user";
 
         private readonly List<Place> _allPlaces = new();
+
+        private int? _activePlaceId;
+        private ModeType? _activeMode;
+        private bool _isInZoneSession;
+        private DateTime _lastInsideZoneAt = DateTime.MinValue;
+
+        private static readonly TimeSpan ZoneExitGracePeriod = TimeSpan.FromSeconds(12);
 
         public bool ShowEmptyState => !IsLoading && NearbyPlaces.Count == 0;
 
@@ -40,11 +48,13 @@ namespace GeoSilence.PageModels
             LocationService locationService,
             GeofencingService geoService,
             ModeService modeService,
+            BackgroundGeofenceService backgroundGeofenceService,
             PlaceRepository repo)
         {
             _locationService = locationService;
             _geoService = geoService;
             _modeService = modeService;
+            _backgroundGeofenceService = backgroundGeofenceService;
             _repo = repo;
         }
 
@@ -56,6 +66,8 @@ namespace GeoSilence.PageModels
 
             _allPlaces.Clear();
             _allPlaces.AddRange(places);
+
+            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
 
             await LoadAsync(); // ✅ correct initial load
         }
@@ -75,7 +87,7 @@ namespace GeoSilence.PageModels
                     Console.WriteLine($"TRACKING ERROR: {ex.Message}");
                 }
 
-                await Task.Delay(5000, _cts.Token);
+                await Task.Delay(TimeSpan.FromSeconds(30), _cts.Token);
             }
         }
 
@@ -84,14 +96,14 @@ namespace GeoSilence.PageModels
             _cts?.Cancel();
         }
 
-        public async Task AddPlace(double lat, double lng, string name, ModeType mode)
+        public async Task AddPlace(double lat, double lng, string name, ModeType mode, double radius)
         {
             var place = new Place
             {
                 Name = name,
                 Latitude = lat,
                 Longitude = lng,
-                Radius = 100,
+                Radius = radius,
                 Mode = mode,
                 IsActive = true
             };
@@ -100,15 +112,20 @@ namespace GeoSilence.PageModels
 
             await _repo.AddPlaceAsync(place, USER_ID);
 
+            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+
             await LoadAsync();
         }
 
-        public async Task UpdatePlace(Place place, string newName, ModeType newMode)
+        public async Task UpdatePlace(Place place, string newName, ModeType newMode, double radius)
         {
             place.Name = newName;
             place.Mode = newMode;
+            place.Radius = radius;
 
             await _repo.UpdatePlaceAsync(place);
+
+            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
 
             await LoadAsync();
         }
@@ -118,6 +135,8 @@ namespace GeoSilence.PageModels
             _allPlaces.Remove(place);
 
             await _repo.DeletePlaceAsync(place.Id);
+
+            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
 
             await LoadAsync();
         }
@@ -144,6 +163,8 @@ namespace GeoSilence.PageModels
                 .OrderBy(p => p.Distance)
                 .ToList();
 
+            UpdateModeForLocation(location, sorted);
+
             bool isSame =
                 NearbyPlaces.Count == sorted.Count &&
                 NearbyPlaces.Select(p => p.Id).SequenceEqual(sorted.Select(p => p.Id));
@@ -160,16 +181,45 @@ namespace GeoSilence.PageModels
 
                 IsLoading = false;
             });
+        }
 
-            foreach (var place in sorted)
+        private void UpdateModeForLocation(
+            GeoSilence.Models.Location location,
+            List<Place> sorted)
+        {
+            var activePlace = sorted
+                .Where(place => place.IsActive)
+                .FirstOrDefault(place => _geoService.IsInside(location, place));
+
+            if (activePlace == null)
             {
-                if (_geoService.IsInside(location, place))
+                if (_isInZoneSession &&
+                    DateTime.UtcNow - _lastInsideZoneAt >= ZoneExitGracePeriod)
                 {
-                    _modeService.SetMode(place.Mode);
-                    Console.WriteLine($"ENTERED: {place.Name}");
-                    Console.WriteLine($"SETTING MODE: {place.Mode}");
+                    _modeService.RestoreOriginalMode();
+
+                    _isInZoneSession = false;
+                    _activePlaceId = null;
+                    _activeMode = null;
                 }
+
+                return;
             }
+
+            _isInZoneSession = true;
+            _lastInsideZoneAt = DateTime.UtcNow;
+
+            if (_activePlaceId == activePlace.Id &&
+                _activeMode == activePlace.Mode)
+                return;
+
+            _modeService.ApplyZoneMode(activePlace.Mode);
+
+            _activePlaceId = activePlace.Id;
+            _activeMode = activePlace.Mode;
+
+            Console.WriteLine($"ENTERED: {activePlace.Name}");
+            Console.WriteLine($"SETTING MODE: {activePlace.Mode}");
         }
 
         public async Task<GeoSilence.Models.Location?> GetCurrentLocationForMap()
