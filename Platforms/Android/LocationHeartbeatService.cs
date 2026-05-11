@@ -9,12 +9,9 @@ using GeoSilence.Platforms.Droid;
 namespace GeoSilence
 {
     // Foreground service whose only job is to keep FusedLocationProvider warm
-    // so that Play Services has fresh location fixes to evaluate geofences
-    // against. Without this, on devices/emulators where no other app is
-    // requesting location, geofence transitions are never delivered.
-    //
-    // We do NOT do mode-switching here — that still happens in
-    // GeofenceBroadcastReceiver. This service is purely a location heartbeat.
+    // so Play Services has fresh fixes to evaluate geofences against.
+    // Without this, on devices/emulators where no other app is requesting
+    // location, geofence transitions may never be delivered.
     [Service(
         Enabled = true,
         Exported = false,
@@ -27,13 +24,12 @@ namespace GeoSilence
         private const int NotificationId = 4711;
         private const string ChannelId = "geosilence_location_channel";
 
-        // 3 min is a good balance: well under the typical Doze window,
-        // far more responsive than Android's lazy passive cadence,
-        // and battery-cheap at PriorityBalancedPowerAccuracy.
+        // 3 min interval — well under typical Doze window, far more responsive
+        // than passive cadence, cheap at BalancedPowerAccuracy.
         private const long IntervalMs = 3 * 60 * 1000;
         private const long FastestIntervalMs = 60 * 1000;
 
-        private FusedLocationProviderClient? _client;
+        private IFusedLocationProviderClient? _client;
         private HeartbeatCallback? _callback;
         private bool _started;
 
@@ -73,8 +69,6 @@ namespace GeoSilence
             }
 
             StartHeartbeat();
-
-            // Sticky so Android restarts it if killed under memory pressure
             return StartCommandResult.Sticky;
         }
 
@@ -95,12 +89,13 @@ namespace GeoSilence
                 _client = LocationServices.GetFusedLocationProviderClient(this);
                 _callback = new HeartbeatCallback();
 
-                var request = new LocationRequest.Builder(
-                        Priority.PriorityBalancedPowerAccuracy,
-                        IntervalMs)
-                    .SetMinUpdateIntervalMillis(FastestIntervalMs)
-                    .SetWaitForAccurateLocation(false)
-                    .Build();
+                // Older-style LocationRequest construction works in
+                // Xamarin.GooglePlayServices.Location 121.x bindings without
+                // depending on LocationRequest.Builder.
+                var request = LocationRequest.Create()!
+                    .SetPriority(LocationRequest.PriorityBalancedPowerAccuracy)
+                    .SetInterval(IntervalMs)
+                    .SetFastestInterval(FastestIntervalMs);
 
                 _client.RequestLocationUpdates(
                     request,
@@ -184,7 +179,6 @@ namespace GeoSilence
             }
         }
 
-        // Start/stop helpers callable from anywhere
         public static void Start(Context context)
         {
             var intent = new Intent(context, typeof(LocationHeartbeatService))
