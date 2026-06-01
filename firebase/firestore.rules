@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function validProfile() {
+      return request.resource.data.keys().hasOnly([
+        'uid',
+        'displayName',
+        'email',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.uid == request.auth.uid
+      && request.resource.data.displayName is string
+      && request.resource.data.email is string;
+    }
+
+    function validPlace(userId) {
+      return request.resource.data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'name',
+        'latitude',
+        'longitude',
+        'radius',
+        'mode',
+        'isActive',
+        'isPublic',
+        'deleted',
+        'createdAt',
+        'updatedAt',
+        'version'
+      ])
+      && request.resource.data.ownerId == userId
+      && request.resource.data.ownerId == request.auth.uid
+      && request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.name.size() <= 120
+      && request.resource.data.latitude is number
+      && request.resource.data.latitude >= -90
+      && request.resource.data.latitude <= 90
+      && request.resource.data.longitude is number
+      && request.resource.data.longitude >= -180
+      && request.resource.data.longitude <= 180
+      && request.resource.data.radius is number
+      && request.resource.data.radius >= 25
+      && request.resource.data.radius <= 5000
+      && request.resource.data.mode in ['Silent', 'Vibrate', 'Normal']
+      && request.resource.data.isActive is bool
+      && request.resource.data.isPublic is bool
+      && request.resource.data.deleted is bool
+      && request.resource.data.version is int;
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId) && validProfile();
+      allow get: if isOwner(userId);
+      allow update: if isOwner(userId) && validProfile();
+      allow delete: if isOwner(userId);
+      allow list: if false;
+
+      match /places/{placeId} {
+        allow get, list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && validPlace(userId);
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /publicPlaces/{placeId} {
+      allow get, list: if signedIn()
+        && resource.data.isPublic == true
+        && resource.data.deleted == false;
+
+      allow create, update: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.isPublic == true
+        && validPlace(request.auth.uid);
+
+      allow delete: if signedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+  }
+}

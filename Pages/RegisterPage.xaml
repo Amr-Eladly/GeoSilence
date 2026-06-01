@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.RegisterPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Create account"
+    BackgroundColor="#F6F7F9">
+
+    <Grid Padding="24" RowDefinitions="*,Auto,*">
+        <VerticalStackLayout
+            Grid.Row="1"
+            Spacing="14"
+            MaximumWidthRequest="420"
+            HorizontalOptions="Fill">
+
+            <Label
+                Text="Create account"
+                FontSize="30"
+                FontAttributes="Bold"
+                TextColor="#17171A" />
+
+            <Border
+                Padding="18"
+                BackgroundColor="White"
+                Stroke="#E4E7EC"
+                StrokeShape="RoundRectangle 8">
+
+                <VerticalStackLayout Spacing="12">
+                    <Entry
+                        x:Name="DisplayNameEntry"
+                        Placeholder="Display name"
+                        ReturnType="Next" />
+
+                    <Entry
+                        x:Name="EmailEntry"
+                        Placeholder="Email"
+                        Keyboard="Email"
+                        ReturnType="Next" />
+
+                    <Entry
+                        x:Name="PasswordEntry"
+                        Placeholder="Password"
+                        IsPassword="True"
+                        ReturnType="Done" />
+
+                    <Button
+                        x:Name="RegisterButton"
+                        Text="Register"
+                        Clicked="OnRegisterClicked" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

@@ -12,10 +12,9 @@ namespace GeoSilence.PageModels
         private readonly ModeService _modeService;
         private readonly BackgroundGeofenceService _backgroundGeofenceService;
         private readonly PlaceRepository _repo;
+        private readonly SyncService _syncService;
 
         private CancellationTokenSource? _cts;
-
-        private const string USER_ID = "local_user";
 
         private readonly List<Place> _allPlaces = new();
 
@@ -49,20 +48,22 @@ namespace GeoSilence.PageModels
             GeofencingService geoService,
             ModeService modeService,
             BackgroundGeofenceService backgroundGeofenceService,
-            PlaceRepository repo)
+            PlaceRepository repo,
+            SyncService syncService)
         {
             _locationService = locationService;
             _geoService = geoService;
             _modeService = modeService;
             _backgroundGeofenceService = backgroundGeofenceService;
             _repo = repo;
+            _syncService = syncService;
         }
 
         public async Task InitializeAsync()
         {
             await _repo.InitializeAsync();
-
-            var places = await _repo.GetPlacesAsync(USER_ID);
+            await _syncService.SyncAfterLoginAsync();
+            var places = await _repo.GetPlacesAsync();
 
             _allPlaces.Clear();
             _allPlaces.AddRange(places);
@@ -108,11 +109,12 @@ namespace GeoSilence.PageModels
                 IsActive = true
             };
 
+            var entity = await _repo.AddPlaceAsync(place);
             _allPlaces.Add(place);
 
-            await _repo.AddPlaceAsync(place, USER_ID);
-
             await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+
+            await _syncService.SyncPlaceAsync(entity.Id);
 
             await LoadAsync();
         }
@@ -127,6 +129,8 @@ namespace GeoSilence.PageModels
 
             await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
 
+            await _syncService.SyncPlaceAsync(place.Id);
+
             await LoadAsync();
         }
 
@@ -137,6 +141,8 @@ namespace GeoSilence.PageModels
             await _repo.DeletePlaceAsync(place.Id);
 
             await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+
+            await _syncService.SyncDeleteAsync(place.Id);
 
             await LoadAsync();
         }

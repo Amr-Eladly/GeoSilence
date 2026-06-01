@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Shell.NavBarIsVisible="False"
+    BackgroundColor="#F6F7F9">
+
+    <Grid Padding="24" RowDefinitions="*,Auto,*">
+        <VerticalStackLayout
+            Grid.Row="1"
+            Spacing="14"
+            MaximumWidthRequest="420"
+            HorizontalOptions="Fill">
+
+            <Label
+                Text="GeoSilence"
+                FontSize="34"
+                FontAttributes="Bold"
+                TextColor="#17171A" />
+
+            <Label
+                Text="Sign in to keep your places backed up."
+                FontSize="15"
+                TextColor="#5C6670" />
+
+            <Border
+                Padding="18"
+                BackgroundColor="White"
+                Stroke="#E4E7EC"
+                StrokeShape="RoundRectangle 8">
+
+                <VerticalStackLayout Spacing="12">
+                    <Entry
+                        x:Name="EmailEntry"
+                        Placeholder="Email"
+                        Keyboard="Email"
+                        ReturnType="Next" />
+
+                    <Entry
+                        x:Name="PasswordEntry"
+                        Placeholder="Password"
+                        IsPassword="True"
+                        ReturnType="Done" />
+
+                    <Button
+                        x:Name="LoginButton"
+                        Text="Login"
+                        Clicked="OnLoginClicked" />
+
+                    <Button
+                        Text="Create account"
+                        Clicked="OnCreateAccountClicked"
+                        BackgroundColor="Transparent"
+                        TextColor="#2563EB" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

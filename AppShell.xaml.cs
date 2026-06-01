@@ -6,12 +6,41 @@ namespace GeoSilence
 {
     public partial class AppShell : Shell
     {
-        public AppShell()
+        private readonly IAuthenticationService _authenticationService;
+        private bool _initialized;
+
+        public AppShell(IAuthenticationService authenticationService)
         {
+            _authenticationService = authenticationService;
             InitializeComponent();
+            Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
+            _authenticationService.AuthStateChanged += OnAuthStateChanged;
+
             var currentTheme = Application.Current!.RequestedTheme;
             //ThemeSegmentedControl.SelectedIndex = currentTheme == AppTheme.Light ? 0 : 1;
         }
+
+        protected override async void OnAppearing()
+        {
+            base.OnAppearing();
+
+            if (_initialized)
+                return;
+
+            _initialized = true;
+
+            await _authenticationService.InitializeAsync();
+            await GoToAsync(_authenticationService.IsSignedIn ? "//main" : "//login");
+        }
+
+        private async void OnAuthStateChanged(object? sender, EventArgs e)
+        {
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                await GoToAsync(_authenticationService.IsSignedIn ? "//main" : "//login");
+            });
+        }
+
         public static async Task DisplaySnackbarAsync(string message)
         {
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();

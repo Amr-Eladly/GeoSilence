@@ -12,6 +12,8 @@ namespace GeoSilence.Models
         [PrimaryKey, AutoIncrement]
         public int Id { get; set; }
 
+        public string CloudId { get; set; } = "";
+
         public string Name { get; set; } = "";
 
         public double Latitude { get; set; }
@@ -21,9 +23,14 @@ namespace GeoSilence.Models
 
         public int Mode { get; set; }
 
-        //for the future
         public bool IsPublic { get; set; }
+        public bool IsDeleted { get; set; }
+        public bool IsDirty { get; set; }
 
-        public string? OwnerId { get; set; }
+        public string OwnerId { get; set; } = "";
+        public long CreatedAtUtcMs { get; set; }
+        public long UpdatedAtUtcMs { get; set; }
+        public long? LastSyncedAtUtcMs { get; set; }
+        public int Version { get; set; } = 1;
     }
 }

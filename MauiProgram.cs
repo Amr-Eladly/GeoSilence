@@ -25,6 +25,11 @@ namespace GeoSilence
             builder.Logging.AddDebug();
 #endif
 
+            builder.Services.AddSingleton<HttpClient>();
+            builder.Services.AddSingleton<IAuthenticationService, AuthenticationService>();
+            builder.Services.AddSingleton<FirestoreService>();
+            builder.Services.AddSingleton<CloudPlaceRepository>();
+            builder.Services.AddSingleton<SyncService>();
             builder.Services.AddSingleton<DistanceService>();
             builder.Services.AddSingleton<GeofencingService>();
             builder.Services.AddSingleton<LocationService>();
@@ -33,6 +38,8 @@ namespace GeoSilence
             builder.Services.AddSingleton<PlaceManagerService>();
             builder.Services.AddSingleton<HomeViewModel>();
             builder.Services.AddSingleton<MainPage>();
+            builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<RegisterPage>();
             builder.Services.AddSingleton<AppShell>();
             builder.Services.AddSingleton<DatabaseService>();
             builder.Services.AddSingleton<PlaceRepository>();
