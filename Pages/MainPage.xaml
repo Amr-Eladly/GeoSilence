@@ -18,16 +18,11 @@
 
     <Grid>
 
-        <!-- MAP (background) with long-press support -->
-        <Grid x:Name="MapContainer" HorizontalOptions="Fill" VerticalOptions="Fill">
-            <maps:Map
-                x:Name="MainMap"
-                IsShowingUser="True"
-                MapClicked="OnMapClicked"/>
-            <Grid.GestureRecognizers>
-                <LongPressGestureRecognizer Duration="500" Pressed="OnMapLongPressed"/>
-            </Grid.GestureRecognizers>
-        </Grid>
+        <!-- MAP (background) -->
+        <maps:Map
+        x:Name="MainMap"
+        IsShowingUser="True"
+        MapClicked="OnMapClicked"/>
 
         <Grid
             x:Name="SearchPanel"
