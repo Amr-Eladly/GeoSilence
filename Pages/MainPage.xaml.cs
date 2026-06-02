@@ -11,25 +11,31 @@ namespace GeoSilence.Pages
     public partial class MainPage : ContentPage
     {
         private readonly HomeViewModel _vm;
+        private readonly AccountProfileService _accountProfileService;
         private readonly SearchService _searchService = new();
         private NotifyCollectionChangedEventHandler? _collectionHandler;
         private Pin? _searchResultPin;
+        private Pin? _focusedPlacePin;
+        private CancellationTokenSource? _searchCts;
         private Microsoft.Maui.Devices.Sensors.Location? _pendingPlaceLocation;
         private string? _pendingPlaceName;
         private Place? _editingPlace;
         private readonly VisualElement? _placeFormCard;
         private ModeType _selectedMode = ModeType.Silent;
         private double _bottomSheetPanStartHeight;
+        private bool _isSearching;
+        private bool _isSavingPlace;
 
         private const double BottomSheetCollapsedHeight = 160;
         private const double BottomSheetExpandedHeight = 360;
         private const double KeyboardFormOffset = -230;
 
-        public MainPage(HomeViewModel vm)
+        public MainPage(HomeViewModel vm, AccountProfileService accountProfileService)
         {
             InitializeComponent();
             BindingContext = vm;
             _vm = vm;
+            _accountProfileService = accountProfileService;
             _placeFormCard = this.FindByName<VisualElement>("PlaceFormCard");
         }
 
@@ -43,12 +49,27 @@ namespace GeoSilence.Pages
             var query = PlaceSearchBar.Text;
 
             if (string.IsNullOrWhiteSpace(query))
+            {
+                ClearSearchState();
                 return;
+            }
+
+            if (_isSearching)
+                return;
+
+            var trimmedQuery = query.Trim();
+            _searchCts?.Cancel();
+            _searchCts?.Dispose();
+            _searchCts = new CancellationTokenSource();
+            var token = _searchCts.Token;
+            SetSearchInProgress(true);
 
             try
             {
-                var result =
-                    await _searchService.SearchPlaceAsync(query);
+                var result = await _searchService.SearchPlaceAsync(trimmedQuery, token);
+
+                if (token.IsCancellationRequested)
+                    return;
 
                 if (result == null)
                 {
@@ -77,13 +98,28 @@ namespace GeoSilence.Pages
 
                 _pendingPlaceLocation = location;
                 _pendingPlaceName = result.Name;
-                AddSearchResultButton.IsVisible = true;
+                UpdateSearchUiState();
                 PlaceSearchBar.Unfocus();
+            }
+            catch (OperationCanceledException)
+            {
             }
             catch (Exception ex)
             {
+                if (token.IsCancellationRequested)
+                    return;
+
                 System.Diagnostics.Debug.WriteLine($"SEARCH ERROR: {ex}");
                 await DisplayAlert("Search Error", "Could not search for that place right now.", "OK");
+            }
+            finally
+            {
+                if (_searchCts != null && token == _searchCts.Token)
+                {
+                    _searchCts.Dispose();
+                    _searchCts = null;
+                    SetSearchInProgress(false);
+                }
             }
         }
 
@@ -95,19 +131,35 @@ namespace GeoSilence.Pages
             ShowPlaceForm(_pendingPlaceLocation, _pendingPlaceName);
         }
 
+        private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(e.NewTextValue))
+                ClearSearchState();
+        }
+
         private void RefreshPins()
         {
             MainMap.Pins.Clear();
+            _focusedPlacePin = null;
 
             foreach (var place in _vm.NearbyPlaces.ToList())
             {
-                MainMap.Pins.Add(new Pin
+                var pin = new Pin
                 {
                     Label = place.Name,
                     Location = new Microsoft.Maui.Devices.Sensors.Location(
                         place.Latitude,
                         place.Longitude)
-                });
+                };
+
+                MainMap.Pins.Add(pin);
+
+                if (_focusedPlacePin == null &&
+                    AreSamePlace(pin.Location, _pendingPlaceLocation) &&
+                    string.Equals(pin.Label, _pendingPlaceName, StringComparison.Ordinal))
+                {
+                    _focusedPlacePin = pin;
+                }
             }
 
             if (_searchResultPin != null)
@@ -116,7 +168,30 @@ namespace GeoSilence.Pages
 
         private void OnPlacesChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            MainThread.BeginInvokeOnMainThread(RefreshPins);
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                RefreshPins();
+            });
+        }
+
+        private void UpdateSearchUiState()
+        {
+            AddSearchResultButton.IsVisible = _pendingPlaceLocation != null;
+        }
+
+        private void ClearSearchState()
+        {
+            CancelSearch();
+            _pendingPlaceLocation = null;
+            _pendingPlaceName = null;
+
+            if (_searchResultPin != null)
+            {
+                MainMap.Pins.Remove(_searchResultPin);
+                _searchResultPin = null;
+            }
+
+            UpdateSearchUiState();
         }
 
         private void OnEditSwipe(object sender, EventArgs e)
@@ -215,15 +290,57 @@ namespace GeoSilence.Pages
 
         private async void OnSavePlaceFormClicked(object sender, EventArgs e)
         {
-            if (_pendingPlaceLocation == null)
+            if (_isSavingPlace)
                 return;
+
+            _isSavingPlace = true;
+            SetPlaceSaveState(isBusy: true);
+
+            try
+            {
+                var saved = await SavePlaceAsync();
+                if (!saved)
+                    return;
+
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    HidePlaceForm();
+                    RefreshPins();
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SAVE PLACE ERROR: {ex}");
+                await DisplayAlert("Save Error", "Could not save the place right now.", "OK");
+            }
+            finally
+            {
+                _isSavingPlace = false;
+                SetPlaceSaveState(isBusy: false);
+            }
+        }
+
+        private void HidePlaceForm()
+        {
+            PlaceFormOverlay.IsVisible = false;
+            _editingPlace = null;
+            PlaceModeDropdown.IsVisible = false;
+            if (_placeFormCard != null)
+                _placeFormCard.TranslationY = 0;
+            PlacesBottomSheet.InputTransparent = false;
+        }
+
+        private async Task<bool> SavePlaceAsync()
+        {
+            if (_pendingPlaceLocation == null)
+                return false;
 
             var name = PlaceNameEntry.Text?.Trim();
 
             if (string.IsNullOrWhiteSpace(name))
             {
                 await DisplayAlert("Place", "Enter a place name.", "OK");
-                return;
+                return false;
             }
 
             if (!double.TryParse(
@@ -234,7 +351,7 @@ namespace GeoSilence.Pages
                 radius <= 0)
             {
                 await DisplayAlert("Place", "Enter a valid radius in meters.", "OK");
-                return;
+                return false;
             }
 
             if (_editingPlace == null)
@@ -246,7 +363,7 @@ namespace GeoSilence.Pages
                     _selectedMode,
                     radius);
 
-                AddSearchResultButton.IsVisible = false;
+                ClearSearchState();
             }
             else
             {
@@ -257,17 +374,7 @@ namespace GeoSilence.Pages
                     radius);
             }
 
-            HidePlaceForm();
-        }
-
-        private void HidePlaceForm()
-        {
-            PlaceFormOverlay.IsVisible = false;
-            _editingPlace = null;
-            PlaceModeDropdown.IsVisible = false;
-            if (_placeFormCard != null)
-                _placeFormCard.TranslationY = 0;
-            PlacesBottomSheet.InputTransparent = false;
+            return true;
         }
 
         private void OnBottomSheetHandleTapped(object sender, TappedEventArgs e)
@@ -330,6 +437,104 @@ namespace GeoSilence.Pages
             RefreshPins();
         }
 
+        private void OnLocateMeClicked(object sender, EventArgs e)
+        {
+            _ = RecenterOnCurrentLocationAsync();
+        }
+
+        private async Task RecenterOnCurrentLocationAsync()
+        {
+            var loc = await _vm.GetCurrentLocationForMap();
+            if (loc == null)
+                return;
+
+            MainMap.MoveToRegion(
+                MapSpan.FromCenterAndRadius(
+                    new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude),
+                    Distance.FromMeters(500)));
+        }
+
+        private void OnPlaceTapped(object sender, TappedEventArgs e)
+        {
+            if (sender is not Grid grid ||
+                grid.BindingContext is not Place place)
+                return;
+
+            FocusPlaceOnMap(place);
+        }
+
+        private void FocusPlaceOnMap(Place place)
+        {
+            var location = new Microsoft.Maui.Devices.Sensors.Location(place.Latitude, place.Longitude);
+
+            MainMap.MoveToRegion(
+                MapSpan.FromCenterAndRadius(
+                    location,
+                    Distance.FromMeters(Math.Max(place.Radius * 3, 220))));
+
+            _focusedPlacePin = MainMap.Pins.FirstOrDefault(pin =>
+                string.Equals(pin.Label, place.Name, StringComparison.Ordinal) &&
+                AreSamePlace(pin.Location, location));
+        }
+
+        private async void OnAddPlaceFabClicked(object sender, EventArgs e)
+        {
+            if (MainMap.VisibleRegion?.Center != null)
+            {
+                ShowPlaceForm(MainMap.VisibleRegion.Center);
+                return;
+            }
+
+            var loc = await _vm.GetCurrentLocationForMap();
+            if (loc == null)
+                return;
+
+            ShowPlaceForm(
+                new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude));
+        }
+
+        private async void OnAccountAvatarTapped(object sender, TappedEventArgs e)
+        {
+            await Shell.Current.GoToAsync(nameof(AccountPage));
+        }
+
+        private void SetSearchInProgress(bool isSearching)
+        {
+            _isSearching = isSearching;
+            SearchLoadingIndicator.IsVisible = isSearching;
+            SearchLoadingIndicator.IsRunning = isSearching;
+            PlaceSearchBar.IsEnabled = !isSearching;
+            SearchBarBorder.BackgroundColor = Colors.White;
+        }
+
+        private void CancelSearch()
+        {
+            _searchCts?.Cancel();
+            _searchCts?.Dispose();
+            _searchCts = null;
+            SetSearchInProgress(false);
+        }
+
+        private void SetPlaceSaveState(bool isBusy)
+        {
+            PlaceFormSaveButton.IsEnabled = !isBusy;
+            PlaceFormCancelButton.IsEnabled = !isBusy;
+            PlaceFormSaveButton.Text = isBusy ? "Saving..." : "Save";
+        }
+
+        private static bool AreSamePlace(
+            Microsoft.Maui.Devices.Sensors.Location? first,
+            Microsoft.Maui.Devices.Sensors.Location? second)
+        {
+            if (first == null || second == null)
+                return false;
+
+            const double tolerance = 0.000001;
+
+            return Math.Abs(first.Latitude - second.Latitude) < tolerance &&
+                   Math.Abs(first.Longitude - second.Longitude) < tolerance;
+        }
+
         protected override async void OnAppearing()
         {
             base.OnAppearing();
@@ -342,6 +547,9 @@ namespace GeoSilence.Pages
                 _vm.NearbyPlaces.CollectionChanged += _collectionHandler;
 
                 await SetupMapAsync();
+                UpdateSearchUiState();
+                _accountProfileService.ProfileChanged += OnProfileChanged;
+                await LoadAvatarAsync();
 
                 _ = Task.Run(async () =>
                 {
@@ -358,10 +566,38 @@ namespace GeoSilence.Pages
         {
             base.OnDisappearing();
 
+            CancelSearch();
+            _accountProfileService.ProfileChanged -= OnProfileChanged;
             _vm.StopTracking();
 
             if (_collectionHandler != null)
                 _vm.NearbyPlaces.CollectionChanged -= _collectionHandler;
+        }
+
+        private async Task LoadAvatarAsync()
+        {
+            var profile = await _accountProfileService.EnsureLoadedAsync();
+            var hasPhoto = !string.IsNullOrWhiteSpace(profile.LocalPhotoPath) && File.Exists(profile.LocalPhotoPath);
+
+            AccountAvatarBorder.Background = Color.FromArgb(_accountProfileService.GetAvatarColor(profile));
+            AccountAvatarImage.IsVisible = hasPhoto;
+            AccountAvatarInitialsLabel.IsVisible = !hasPhoto;
+
+            if (hasPhoto)
+            {
+                AccountAvatarImage.Source = ImageSource.FromFile(profile.LocalPhotoPath);
+                AccountAvatarInitialsLabel.Text = string.Empty;
+            }
+            else
+            {
+                AccountAvatarImage.Source = null;
+                AccountAvatarInitialsLabel.Text = _accountProfileService.GetInitials(profile);
+            }
+        }
+
+        private async void OnProfileChanged(object? sender, EventArgs e)
+        {
+            await MainThread.InvokeOnMainThreadAsync(LoadAvatarAsync);
         }
     }
 }

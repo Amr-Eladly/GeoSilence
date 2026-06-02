@@ -27,29 +27,74 @@
         <Grid
             x:Name="SearchPanel"
             ColumnDefinitions="*,Auto"
-            ColumnSpacing="8"
-            Margin="10,8,68,0"
-            HeightRequest="48"
+            ColumnSpacing="10"
+            Margin="14,12,14,0"
+            HeightRequest="56"
             VerticalOptions="Start"
-            ZIndex="1">
+            ZIndex="2">
 
             <Border
+                x:Name="SearchBarBorder"
+                Grid.ColumnSpan="2"
                 BackgroundColor="White"
-                Stroke="#E0E0E0"
+                Stroke="#E7E7E7"
                 StrokeThickness="1"
-                StrokeShape="RoundRectangle 8"
-                HeightRequest="48">
-
-                <SearchBar
-                    x:Name="PlaceSearchBar"
-                    Placeholder="Search place..."
-                    SearchButtonPressed="OnSearchSubmitted"
-                    BackgroundColor="Transparent"
-                    TextColor="Black"
-                    PlaceholderColor="Gray"
-                    CancelButtonColor="Gray"
-                    FontSize="13"
-                    HeightRequest="48"/>
+                StrokeShape="RoundRectangle 18"
+                HeightRequest="56"
+                Shadow="0,4,14,#22000000">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <SearchBar
+                        x:Name="PlaceSearchBar"
+                        Placeholder="Search places..."
+                        SearchButtonPressed="OnSearchSubmitted"
+                        TextChanged="OnSearchTextChanged"
+                        BackgroundColor="Transparent"
+                        TextColor="#111827"
+                        PlaceholderColor="#9CA3AF"
+                        CancelButtonColor="#9CA3AF"
+                        FontSize="14"
+                        HorizontalOptions="Fill"
+                        Margin="4,0,0,0"
+                        HeightRequest="56"/>
+                    <ActivityIndicator
+                        Grid.Column="1"
+                        x:Name="SearchLoadingIndicator"
+                        IsVisible="False"
+                        IsRunning="False"
+                        WidthRequest="20"
+                        HeightRequest="20"
+                        Margin="0,0,6,0"
+                        VerticalOptions="Center"
+                        HorizontalOptions="Center"
+                        Color="#2563EB"/>
+                    <Border
+                        Grid.Column="2"
+                        x:Name="AccountAvatarBorder"
+                        WidthRequest="38"
+                        HeightRequest="38"
+                        Margin="0,5,6,5"
+                        Padding="0"
+                        Background="#2563EB"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 19">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="OnAccountAvatarTapped"/>
+                        </Border.GestureRecognizers>
+                        <Grid>
+                            <Image
+                                x:Name="AccountAvatarImage"
+                                IsVisible="False"
+                                Aspect="AspectFill"/>
+                            <Label
+                                x:Name="AccountAvatarInitialsLabel"
+                                HorizontalOptions="Center"
+                                VerticalOptions="Center"
+                                FontSize="14"
+                                FontAttributes="Bold"
+                                TextColor="White"/>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Border>
 
             <Button
@@ -58,15 +103,51 @@
                 Text="Add"
                 IsVisible="False"
                 Clicked="OnAddSearchResultClicked"
-                BackgroundColor="White"
-                TextColor="Black"
-                Padding="16,0"/>
+                VerticalOptions="Center"
+                Margin="0,0,8,0"
+                HeightRequest="40"
+                CornerRadius="20"
+                BackgroundColor="#2563EB"
+                TextColor="White"
+                Padding="14,0"
+                ZIndex="3"/>
         </Grid>
+
+        <VerticalStackLayout
+            HorizontalOptions="End"
+            VerticalOptions="End"
+            Margin="0,0,18,190"
+            Spacing="12"
+            ZIndex="2">
+            <Button
+                x:Name="LocateMeButton"
+                Text="🎯"
+                Clicked="OnLocateMeClicked"
+                WidthRequest="52"
+                HeightRequest="52"
+                CornerRadius="26"
+                FontSize="20"
+                BackgroundColor="White"
+                TextColor="#111827"
+                Shadow="0,4,14,#22000000"/>
+            <Button
+                x:Name="AddPlaceFabButton"
+                Text="+"
+                Clicked="OnAddPlaceFabClicked"
+                WidthRequest="56"
+                HeightRequest="56"
+                CornerRadius="28"
+                FontSize="30"
+                Padding="0,-2,0,0"
+                BackgroundColor="#2563EB"
+                TextColor="White"
+                Shadow="0,8,18,#33000000"/>
+        </VerticalStackLayout>
 
         <Frame
             x:Name="PlacesBottomSheet"
             Margin="0"
-            Padding="16,10,16,14"
+            Padding="16,8,16,14"
             BackgroundColor="White"
             CornerRadius="24"
             HasShadow="True"
@@ -78,13 +159,13 @@
                 <PanGestureRecognizer PanUpdated="OnBottomSheetPanUpdated"/>
             </Frame.GestureRecognizers>
 
-            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
                 <BoxView
                     x:Name="BottomSheetHandle"
-                    WidthRequest="42"
-                    HeightRequest="4"
-                    CornerRadius="2"
-                    BackgroundColor="#D0D0D0"
+                    WidthRequest="46"
+                    HeightRequest="5"
+                    CornerRadius="3"
+                    BackgroundColor="#D6D8DE"
                     HorizontalOptions="Center">
                     <BoxView.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnBottomSheetHandleTapped"/>
@@ -94,10 +175,12 @@
                 <Label
                     Grid.Row="1"
                     Text="Places Near Me"
-                    FontSize="18"
+                    FontSize="20"
+                    Margin="2,0,0,2"
                     FontAttributes="Bold"/>
 
                 <CollectionView
+                    x:Name="PlacesCollectionView"
                     Grid.Row="2"
                     ItemsSource="{Binding NearbyPlaces}"
                     SelectionMode="None">
@@ -143,32 +226,42 @@
                                 </SwipeView.RightItems>
 
                                 <Grid
-                                    Padding="4,10"
+                                    Padding="4,8"
                                     ColumnDefinitions="*,Auto"
                                     RowDefinitions="Auto,Auto">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPlaceTapped"/>
+                                    </Grid.GestureRecognizers>
 
                                     <Label
                                         Text="{Binding Name}"
                                         FontSize="16"
+                                        FontAttributes="Bold"
                                         LineBreakMode="TailTruncation"/>
 
-                                    <Label
+                                    <BoxView
                                         Grid.Column="1"
-                                        Text="{Binding Mode}"
-                                        TextColor="Gray"
-                                        FontSize="13"/>
+                                        WidthRequest="12"
+                                        HeightRequest="12"
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center"
+                                        HorizontalOptions="End"
+                                        BackgroundColor="#DC2626"
+                                        CornerRadius="6">
+                                        <BoxView.Triggers>
+                                            <DataTrigger TargetType="BoxView" Binding="{Binding Mode}" Value="Vibrate">
+                                                <Setter Property="BackgroundColor" Value="#F59E0B"/>
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="BoxView" Binding="{Binding Mode}" Value="Normal">
+                                                <Setter Property="BackgroundColor" Value="#16A34A"/>
+                                            </DataTrigger>
+                                        </BoxView.Triggers>
+                                    </BoxView>
 
                                     <Label
                                         Grid.Row="1"
-                                        Text="{Binding DistanceFormatted}"
-                                        TextColor="Gray"
-                                        FontSize="12"/>
-
-                                    <Label
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        Text="{Binding Radius, StringFormat='{0:F0} m'}"
-                                        TextColor="Gray"
+                                        Text="{Binding DistanceFormatted, StringFormat='{0} away'}"
+                                        TextColor="#6B7280"
                                         FontSize="12"/>
                                 </Grid>
 
@@ -223,6 +316,35 @@
                             TextColor="Black"
                             HorizontalOptions="Fill"/>
 
+                        <HorizontalStackLayout
+                            Spacing="10"
+                            Padding="4,8,4,0">
+                            <HorizontalStackLayout Spacing="6">
+                                <BoxView
+                                    WidthRequest="10"
+                                    HeightRequest="10"
+                                    BackgroundColor="#DC2626"
+                                    CornerRadius="5"/>
+                                <Label Text="Silent" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="6">
+                                <BoxView
+                                    WidthRequest="10"
+                                    HeightRequest="10"
+                                    BackgroundColor="#F59E0B"
+                                    CornerRadius="5"/>
+                                <Label Text="Vibrate" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="6">
+                                <BoxView
+                                    WidthRequest="10"
+                                    HeightRequest="10"
+                                    BackgroundColor="#16A34A"
+                                    CornerRadius="5"/>
+                                <Label Text="Normal" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
+                            </HorizontalStackLayout>
+                        </HorizontalStackLayout>
+
                         <VerticalStackLayout
                             x:Name="PlaceModeDropdown"
                             IsVisible="False"
@@ -256,12 +378,14 @@
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
+                            x:Name="PlaceFormCancelButton"
                             Text="Cancel"
                             Clicked="OnCancelPlaceFormClicked"
                             BackgroundColor="#EEEEEE"
                             TextColor="Black"/>
 
                         <Button
+                            x:Name="PlaceFormSaveButton"
                             Grid.Column="1"
                             Text="Save"
                             Clicked="OnSavePlaceFormClicked"/>

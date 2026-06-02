@@ -6,6 +6,7 @@ namespace GeoSilence.Constants
 
         public const string ApiKey = "AIzaSyDQkgghcqMJj9n6d5MVavts--R1BeOJ8zk";
         public const string ProjectId = "geosilence-2f35c";
+        public const string StorageBucket = "";
 
         public static bool IsConfigured =>
             !string.IsNullOrWhiteSpace(ApiKey) &&

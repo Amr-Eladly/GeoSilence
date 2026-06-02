@@ -8,13 +8,14 @@ namespace GeoSilence.Services
     public class SearchService
     {
         private static readonly HttpClient Client = new();
+        private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(12);
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
         };
 
-        public async Task<PlaceSearchResult?> SearchPlaceAsync(string query)
+        public async Task<PlaceSearchResult?> SearchPlaceAsync(string query, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(query))
                 return null;
@@ -23,10 +24,23 @@ namespace GeoSilence.Services
             var url =
                 $"https://maps.googleapis.com/maps/api/place/textsearch/json?query={encodedQuery}&key={GoogleConfig.ApiKey}";
 
-            var response = await Client.GetStringAsync(url);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(RequestTimeout);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var response = await Client.SendAsync(request, timeoutCts.Token);
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadAsStringAsync(timeoutCts.Token);
             var searchResponse = JsonSerializer.Deserialize<GooglePlaceSearchResponse>(
-                response,
+                payload,
                 JsonOptions);
+
+            if (!string.Equals(searchResponse?.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(searchResponse?.Status, "ZERO_RESULTS", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(searchResponse?.ErrorMessage ?? "Search failed.");
+            }
 
             var result = searchResponse?.Results?.FirstOrDefault();
 
@@ -47,6 +61,12 @@ namespace GeoSilence.Services
 
     internal sealed class GooglePlaceSearchResponse
     {
+        [JsonPropertyName("status")]
+        public string? Status { get; set; }
+
+        [JsonPropertyName("error_message")]
+        public string? ErrorMessage { get; set; }
+
         [JsonPropertyName("results")]
         public List<GooglePlaceResult>? Results { get; set; }
     }

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.ProfilePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Profile"
+    BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,18,20,28" Spacing="16">
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Profile" FontSize="24" FontAttributes="Bold" />
+
+                    <Entry x:Name="FirstNameEntry" Placeholder="First Name" />
+                    <Entry x:Name="LastNameEntry" Placeholder="Last Name" />
+                    <Entry x:Name="DateOfBirthEntry" Placeholder="Date of Birth (YYYY-MM-DD)" />
+
+                    <Button Text="Save Changes" Clicked="OnSaveClicked" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Account Details" FontSize="18" FontAttributes="Bold" />
+                    <Label x:Name="EmailLabel" />
+                    <Label x:Name="CreatedAtLabel" />
+                    <Label x:Name="LocationsCountLabel" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

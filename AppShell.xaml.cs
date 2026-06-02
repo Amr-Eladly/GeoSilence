@@ -14,6 +14,11 @@ namespace GeoSilence
             _authenticationService = authenticationService;
             InitializeComponent();
             Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
+            Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
+            Routing.RegisterRoute(nameof(ProfilePage), typeof(ProfilePage));
+            Routing.RegisterRoute(nameof(LoginOptionsPage), typeof(LoginOptionsPage));
+            Routing.RegisterRoute(nameof(ChangePasswordPage), typeof(ChangePasswordPage));
+            Routing.RegisterRoute(nameof(DeleteAccountPage), typeof(DeleteAccountPage));
             _authenticationService.AuthStateChanged += OnAuthStateChanged;
 
             var currentTheme = Application.Current!.RequestedTheme;

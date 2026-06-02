@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.LoginOptionsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Login Options"
+    BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,18,20,28" Spacing="14">
+            <Label Text="Login Options" FontSize="26" FontAttributes="Bold" />
+            <Label Text="Your account is ready for additional sign-in methods as they are enabled." FontSize="14" TextColor="#6B7280" />
+
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Email + Password" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Active on this account." FontSize="14" TextColor="#6B7280" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Google Sign-In" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Page structure is ready. Integration can be enabled later." FontSize="14" TextColor="#6B7280" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Apple Sign-In" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="Page structure is ready. Integration can be enabled later." FontSize="14" TextColor="#6B7280" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

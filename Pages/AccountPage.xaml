@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.AccountPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="My Account"
+    BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,18,20,28" Spacing="18">
+            <Label
+                Text="My Account"
+                FontSize="28"
+                FontAttributes="Bold"
+                TextColor="{AppThemeBinding Light=#111827, Dark=White}" />
+
+            <Border
+                Padding="20"
+                Background="{AppThemeBinding Light=White, Dark=#151923}"
+                Stroke="{AppThemeBinding Light=#E5E7EB, Dark=#232833}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <Border
+                            x:Name="AvatarBorder"
+                            WidthRequest="76"
+                            HeightRequest="76"
+                            Padding="0"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 38"
+                            Background="#2563EB">
+                            <Grid>
+                                <Image
+                                    x:Name="AvatarImage"
+                                    IsVisible="False"
+                                    Aspect="AspectFill" />
+                                <Label
+                                    x:Name="AvatarInitialsLabel"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    TextColor="White"
+                                    FontSize="28"
+                                    FontAttributes="Bold" />
+                            </Grid>
+                        </Border>
+
+                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4">
+                            <Label
+                                x:Name="DisplayNameLabel"
+                                FontSize="22"
+                                FontAttributes="Bold"
+                                TextColor="{AppThemeBinding Light=#111827, Dark=White}" />
+                            <Label
+                                x:Name="EmailLabel"
+                                FontSize="14"
+                                TextColor="{AppThemeBinding Light=#6B7280, Dark=#A7B0C0}" />
+                            <Label
+                                x:Name="LocationsCountLabel"
+                                FontSize="14"
+                                TextColor="{AppThemeBinding Light=#374151, Dark=#D1D5DB}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Button
+                        Text="Edit Photo"
+                        Clicked="OnEditPhotoClicked"
+                        BackgroundColor="{AppThemeBinding Light=#EEF2FF, Dark=#1E293B}"
+                        TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#BFDBFE}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Spacing="10">
+                <Label
+                    Text="Account"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    TextColor="{AppThemeBinding Light=#374151, Dark=#D1D5DB}" />
+
+                <Border Style="{StaticResource CardStyle}" Background="{AppThemeBinding Light=White, Dark=#151923}" Padding="0">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnProfileTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Profile" FontSize="16" />
+                            <Label Grid.Column="1" Text=">" FontSize="16" TextColor="#9CA3AF" />
+                        </Grid>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#E5E7EB, Dark=#273142}" />
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnChangePasswordTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Change Password" FontSize="16" />
+                            <Label Grid.Column="1" Text=">" FontSize="16" TextColor="#9CA3AF" />
+                        </Grid>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#E5E7EB, Dark=#273142}" />
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnLoginOptionsTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Login Options" FontSize="16" />
+                            <Label Grid.Column="1" Text=">" FontSize="16" TextColor="#9CA3AF" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="10">
+                <Label
+                    Text="Security"
+                    FontSize="16"
+                    FontAttributes="Bold"
+                    TextColor="{AppThemeBinding Light=#374151, Dark=#D1D5DB}" />
+
+                <Border Style="{StaticResource CardStyle}" Background="{AppThemeBinding Light=White, Dark=#151923}" Padding="0">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnLogoutTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Logout" FontSize="16" />
+                            <Label Grid.Column="1" Text=">" FontSize="16" TextColor="#9CA3AF" />
+                        </Grid>
+                        <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light=#E5E7EB, Dark=#273142}" />
+                        <Grid Padding="16,14" ColumnDefinitions="*,Auto">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnDeleteAccountTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="Delete Account" FontSize="16" TextColor="#DC2626" />
+                            <Label Grid.Column="1" Text=">" FontSize="16" TextColor="#F87171" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

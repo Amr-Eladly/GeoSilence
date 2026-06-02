@@ -72,6 +72,54 @@ namespace GeoSilence.Services
             _logger.LogInformation("Firestore upload completed for place {CloudId}", place.Id);
         }
 
+        public async Task<UserProfile?> DownloadUserProfileAsync(string userId)
+        {
+            var token = await RequireTokenAsync();
+            var url = UserDocumentUrl(userId);
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return null;
+
+            EnsureSuccess(response, payload, "download user profile");
+
+            using var doc = JsonDocument.Parse(payload);
+            return ParseUserProfile(doc.RootElement);
+        }
+
+        public async Task UpsertUserProfileAsync(UserProfile profile)
+        {
+            var token = await RequireTokenAsync();
+            var url = UserDocumentUrl(profile.Uid);
+            var body = JsonSerializer.Serialize(new { fields = CreateProfileFields(profile) });
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+            EnsureSuccess(response, payload, "upsert user profile");
+        }
+
+        public async Task DeleteUserProfileAsync(string userId)
+        {
+            var token = await RequireTokenAsync();
+            var url = UserDocumentUrl(userId);
+
+            using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+            EnsureSuccess(response, payload, "delete user profile");
+        }
+
         public async Task DeletePlaceAsync(string userId, string cloudId)
         {
             var token = await RequireTokenAsync();
@@ -146,6 +194,26 @@ namespace GeoSilence.Services
             };
         }
 
+        private static UserProfile ParseUserProfile(JsonElement document)
+        {
+            var fields = document.GetProperty("fields");
+
+            return new UserProfile
+            {
+                Uid = ReadString(fields, "uid"),
+                Email = ReadString(fields, "email"),
+                DisplayName = ReadString(fields, "displayName"),
+                FirstName = ReadOptionalString(fields, "firstName"),
+                LastName = ReadOptionalString(fields, "lastName"),
+                DateOfBirthIso = ReadOptionalString(fields, "dateOfBirth"),
+                CreatedAtUtcMs = ReadTimestamp(fields, "createdAt"),
+                UpdatedAtUtcMs = ReadTimestamp(fields, "updatedAt"),
+                PhotoUrl = ReadOptionalString(fields, "photoUrl"),
+                PhotoStoragePath = ReadOptionalString(fields, "photoStoragePath"),
+                LocalPhotoPath = string.Empty
+            };
+        }
+
         private static Dictionary<string, object> CreateFields(CloudPlaceDto place)
         {
             return new Dictionary<string, object>
@@ -163,6 +231,23 @@ namespace GeoSilence.Services
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
                 ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs),
                 ["version"] = IntegerValue(place.Version)
+            };
+        }
+
+        private static Dictionary<string, object> CreateProfileFields(UserProfile profile)
+        {
+            return new Dictionary<string, object>
+            {
+                ["uid"] = StringValue(profile.Uid),
+                ["displayName"] = StringValue(profile.DisplayName),
+                ["email"] = StringValue(profile.Email),
+                ["firstName"] = StringValue(profile.FirstName),
+                ["lastName"] = StringValue(profile.LastName),
+                ["dateOfBirth"] = StringValue(profile.DateOfBirthIso),
+                ["photoUrl"] = StringValue(profile.PhotoUrl),
+                ["photoStoragePath"] = StringValue(profile.PhotoStoragePath),
+                ["createdAt"] = TimestampValue(profile.CreatedAtUtcMs),
+                ["updatedAt"] = TimestampValue(profile.UpdatedAtUtcMs)
             };
         }
 
@@ -184,6 +269,17 @@ namespace GeoSilence.Services
         private static string ReadString(JsonElement fields, string name)
         {
             var value = fields.GetProperty(name);
+            if (value.TryGetProperty("stringValue", out var stringValue))
+                return stringValue.GetString() ?? string.Empty;
+
+            return string.Empty;
+        }
+
+        private static string ReadOptionalString(JsonElement fields, string name)
+        {
+            if (!fields.TryGetProperty(name, out var value))
+                return string.Empty;
+
             if (value.TryGetProperty("stringValue", out var stringValue))
                 return stringValue.GetString() ?? string.Empty;
 
@@ -240,6 +336,9 @@ namespace GeoSilence.Services
 
         private static string ProjectUrl =>
             $"https://firestore.googleapis.com/v1/projects/{FirebaseConfig.ProjectId}/databases/(default)/documents";
+
+        private static string UserDocumentUrl(string userId) =>
+            $"{ProjectUrl}/users/{userId}";
 
         private static string CollectionUrl(string userId) =>
             $"{ProjectUrl}/users/{userId}/places";

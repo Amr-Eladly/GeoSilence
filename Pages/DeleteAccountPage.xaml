@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GeoSilence.Pages.DeleteAccountPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Delete Account"
+    BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,18,20,28" Spacing="16">
+            <Border Padding="18" Background="{AppThemeBinding Light=White, Dark=#151923}" Stroke="{AppThemeBinding Light=#FECACA, Dark=#7F1D1D}" StrokeShape="RoundRectangle 18">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="Delete Account" FontSize="24" FontAttributes="Bold" TextColor="#B91C1C" />
+                    <Label Text="This action is permanent. Your account, profile, places, and cloud backups will be removed." FontSize="14" TextColor="#7F1D1D" />
+                    <Entry x:Name="CurrentPasswordEntry" Placeholder="Current Password" IsPassword="True" />
+                    <Button
+                        x:Name="DeleteButton"
+                        Text="Delete Permanently"
+                        Clicked="OnDeleteClicked"
+                        BackgroundColor="#DC2626" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

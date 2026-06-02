@@ -15,12 +15,22 @@ service cloud.firestore {
         'uid',
         'displayName',
         'email',
+        'firstName',
+        'lastName',
+        'dateOfBirth',
+        'photoUrl',
+        'photoStoragePath',
         'createdAt',
         'updatedAt'
       ])
       && request.resource.data.uid == request.auth.uid
       && request.resource.data.displayName is string
-      && request.resource.data.email is string;
+      && request.resource.data.email is string
+      && request.resource.data.firstName is string
+      && request.resource.data.lastName is string
+      && request.resource.data.dateOfBirth is string
+      && request.resource.data.photoUrl is string
+      && request.resource.data.photoStoragePath is string;
     }
 
     function validPlace(userId) {
