@@ -84,6 +84,9 @@ namespace GeoSilence.PageModels
         {
             _cts = new CancellationTokenSource();
 
+            // Fast polling (2s) for distance updates while the UI is visible.
+            // This gives smooth distance changes without API calls. When the app
+            // goes to background, the heartbeat service takes over for geofencing.
             while (!_cts.Token.IsCancellationRequested)
             {
                 try
@@ -95,7 +98,7 @@ namespace GeoSilence.PageModels
                     Console.WriteLine($"TRACKING ERROR: {ex.Message}");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(30), _cts.Token);
+                await Task.Delay(TimeSpan.FromSeconds(2), _cts.Token);
             }
         }
 
@@ -125,22 +128,30 @@ namespace GeoSilence.PageModels
                 IsActive = true
             };
 
+            // 1. Save to DB and add to local list immediately (fast)
             var entity = await _repo.AddPlaceAsync(place);
+            place.Id = entity.Id;
             _allPlaces.Add(place);
 
+            // 2. Update UI immediately with just distance calculation (fast)
+            await LoadAsync();
+
+            // 3. Re-register geofences with the new place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            try
+            // 4. Sync in background; don't wait for it
+            _ = Task.Run(async () =>
             {
-                await _syncService.SyncPlaceAsync(entity.Id);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
-            }
-            await LoadPublicPlacesAsync();
-
-            await LoadAsync();
+                try
+                {
+                    await _syncService.SyncPlaceAsync(entity.Id);
+                    await LoadPublicPlacesAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
+                }
+            });
         }
 
         public async Task UpdatePlace(
@@ -157,42 +168,57 @@ namespace GeoSilence.PageModels
             place.ActivationType = activationType;
             place.Visibility = visibility;
 
+            // 1. Save to DB immediately
             await _repo.UpdatePlaceAsync(place);
 
+            // 2. Update UI immediately
+            await LoadAsync();
+
+            // 3. Re-register geofences with updated place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            try
+            // 4. Sync in background; don't wait for it
+            _ = Task.Run(async () =>
             {
-                await _syncService.SyncPlaceAsync(place.Id);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
-            }
-            await LoadPublicPlacesAsync();
-
-            await LoadAsync();
+                try
+                {
+                    await _syncService.SyncPlaceAsync(place.Id);
+                    await LoadPublicPlacesAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
+                }
+            });
         }
 
         public async Task DeletePlace(Place place)
         {
+            // 1. Remove from local list immediately
             _allPlaces.Remove(place);
 
+            // 2. Mark as deleted in DB
             await _repo.DeletePlaceAsync(place.Id);
 
+            // 3. Update UI immediately
+            await LoadAsync();
+
+            // 4. Re-register geofences without the deleted place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            try
+            // 5. Sync in background; don't wait for it
+            _ = Task.Run(async () =>
             {
-                await _syncService.SyncDeleteAsync(place.Id);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SYNC DELETE WARNING: {ex.Message}");
-            }
-            await LoadPublicPlacesAsync();
-
-            await LoadAsync();
+                try
+                {
+                    await _syncService.SyncDeleteAsync(place.Id);
+                    await LoadPublicPlacesAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"SYNC DELETE WARNING: {ex.Message}");
+                }
+            });
         }
 
         public async Task AddPublicPlaceToMyPlacesAsync(Place publicPlace)

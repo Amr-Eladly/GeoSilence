@@ -178,8 +178,10 @@ namespace GeoSilence
                 {
                     GeoLog.Write("MODE",
                         $"EXIT but still inside '{activePlace.Name}' -> applying {activePlace.Mode}");
-                    if ((ActivationType)activePlace.ActivationType == ActivationType.Automatic)
-                        modeService.ApplyZoneMode((ModeType)activePlace.Mode);
+                    // Always apply the remaining zone's mode on exit, regardless of
+                    // ActivationType. The user already confirmed entry for this zone
+                    // (or it was automatic), so we respect it on fallback.
+                    modeService.ApplyZoneMode((ModeType)activePlace.Mode);
                 }
             }
         }
