@@ -307,58 +307,61 @@
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                             <Border
                                 x:Name="ModeSilentBorder"
-                                Stroke="#DC2626"
-                                StrokeThickness="2"
+                                Stroke="#D1D5DB"
+                                StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#FEE2E2"
+                                BackgroundColor="White"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Silent"/>
                                 </Border.GestureRecognizers>
                                 <Label
+                                    x:Name="ModeSilentLabel"
                                     Text="Silent"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#DC2626"
+                                    TextColor="#111827"
                                     FontAttributes="Bold"/>
                             </Border>
                             <Border
                                 x:Name="ModeVibrateBorder"
                                 Grid.Column="1"
-                                Stroke="#F59E0B"
+                                Stroke="#D1D5DB"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#FFFBEB"
+                                BackgroundColor="White"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Vibrate"/>
                                 </Border.GestureRecognizers>
                                 <Label
+                                    x:Name="ModeVibrateLabel"
                                     Text="Vibrate"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#F59E0B"
+                                    TextColor="#111827"
                                     FontAttributes="Bold"/>
                             </Border>
                             <Border
                                 x:Name="ModeNormalBorder"
                                 Grid.Column="2"
-                                Stroke="#16A34A"
+                                Stroke="#D1D5DB"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#F0FDF4"
+                                BackgroundColor="White"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Normal"/>
                                 </Border.GestureRecognizers>
                                 <Label
+                                    x:Name="ModeNormalLabel"
                                     Text="Ring"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#16A34A"
+                                    TextColor="#111827"
                                     FontAttributes="Bold"/>
                             </Border>
                         </Grid>

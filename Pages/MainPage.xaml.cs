@@ -289,18 +289,44 @@ namespace GeoSilence.Pages
         {
             _selectedMode = mode;
 
-            // Update border highlighting
-            var silentSelected = mode == ModeType.Silent;
-            var vibrateSelected = mode == ModeType.Vibrate;
-            var normalSelected = mode == ModeType.Normal;
+            // Reset all to white background with gray stroke and dark text
+            ModeSilentBorder.BackgroundColor = Colors.White;
+            ModeSilentBorder.Stroke = Color.FromArgb("#D1D5DB");
+            ModeSilentBorder.StrokeThickness = 1;
+            ModeSilentLabel.TextColor = Color.FromArgb("#111827");
 
-            ModeSilentBorder.StrokeThickness = silentSelected ? 2 : 1;
-            ModeVibrateBorder.StrokeThickness = vibrateSelected ? 2 : 1;
-            ModeNormalBorder.StrokeThickness = normalSelected ? 2 : 1;
+            ModeVibrateBorder.BackgroundColor = Colors.White;
+            ModeVibrateBorder.Stroke = Color.FromArgb("#D1D5DB");
+            ModeVibrateBorder.StrokeThickness = 1;
+            ModeVibrateLabel.TextColor = Color.FromArgb("#111827");
 
-            ModeSilentBorder.BackgroundColor = silentSelected ? Color.FromArgb("#FEE2E2") : Color.FromArgb("#FFFFFF");
-            ModeVibrateBorder.BackgroundColor = vibrateSelected ? Color.FromArgb("#FFFBEB") : Color.FromArgb("#FFFFFF");
-            ModeNormalBorder.BackgroundColor = normalSelected ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#FFFFFF");
+            ModeNormalBorder.BackgroundColor = Colors.White;
+            ModeNormalBorder.Stroke = Color.FromArgb("#D1D5DB");
+            ModeNormalBorder.StrokeThickness = 1;
+            ModeNormalLabel.TextColor = Color.FromArgb("#111827");
+
+            // Highlight selected mode with its color background, colored stroke, and white text
+            switch (mode)
+            {
+                case ModeType.Silent:
+                    ModeSilentBorder.BackgroundColor = Color.FromArgb("#DC2626");
+                    ModeSilentBorder.Stroke = Color.FromArgb("#DC2626");
+                    ModeSilentBorder.StrokeThickness = 2;
+                    ModeSilentLabel.TextColor = Colors.White;
+                    break;
+                case ModeType.Vibrate:
+                    ModeVibrateBorder.BackgroundColor = Color.FromArgb("#F59E0B");
+                    ModeVibrateBorder.Stroke = Color.FromArgb("#F59E0B");
+                    ModeVibrateBorder.StrokeThickness = 2;
+                    ModeVibrateLabel.TextColor = Colors.White;
+                    break;
+                case ModeType.Normal:
+                    ModeNormalBorder.BackgroundColor = Color.FromArgb("#16A34A");
+                    ModeNormalBorder.Stroke = Color.FromArgb("#16A34A");
+                    ModeNormalBorder.StrokeThickness = 2;
+                    ModeNormalLabel.TextColor = Colors.White;
+                    break;
+            }
         }
 
         private void OnRadiusSliderValueChanged(object sender, ValueChangedEventArgs e)
