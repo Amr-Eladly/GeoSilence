@@ -23,7 +23,8 @@ namespace GeoSilence.Models
 
         public int Mode { get; set; }
 
-        public bool IsPublic { get; set; }
+        public int ActivationType { get; set; } = (int)global::GeoSilence.Models.ActivationType.Automatic;
+        public int Visibility { get; set; } = (int)PlaceVisibility.Private;
         public bool IsDeleted { get; set; }
         public bool IsDirty { get; set; }
 

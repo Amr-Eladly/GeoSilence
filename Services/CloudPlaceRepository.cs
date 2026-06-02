@@ -14,22 +14,40 @@ namespace GeoSilence.Services
             _logger = logger;
         }
 
-        public Task<IReadOnlyList<CloudPlaceDto>> DownloadPlacesAsync(string userId)
+        public Task<IReadOnlyList<CloudPlaceDto>> DownloadPrivatePlacesAsync(string userId)
         {
-            _logger.LogInformation("Cloud download requested for user {UserId}", userId);
-            return _firestoreService.DownloadPlacesAsync(userId);
+            _logger.LogInformation("Private cloud download requested for user {UserId}", userId);
+            return _firestoreService.DownloadPrivatePlacesAsync(userId);
         }
 
-        public async Task UploadPlaceAsync(string userId, CloudPlaceDto place)
+        public Task<IReadOnlyList<CloudPlaceDto>> DownloadPublicPlacesAsync()
         {
-            _logger.LogInformation("Cloud upload requested for place {CloudId}", place.Id);
-            await _firestoreService.UploadPlaceAsync(userId, place);
+            _logger.LogInformation("Public cloud download requested");
+            return _firestoreService.DownloadPublicPlacesAsync();
         }
 
-        public async Task DeletePlaceAsync(string userId, string cloudId)
+        public async Task UploadPrivatePlaceAsync(string userId, CloudPlaceDto place)
         {
-            _logger.LogInformation("Cloud delete requested for place {CloudId}", cloudId);
-            await _firestoreService.DeletePlaceAsync(userId, cloudId);
+            _logger.LogInformation("Private cloud upload requested for place {CloudId}", place.Id);
+            await _firestoreService.UploadPrivatePlaceAsync(userId, place);
+        }
+
+        public async Task UploadPublicPlaceAsync(CloudPlaceDto place)
+        {
+            _logger.LogInformation("Public cloud upload requested for place {CloudId}", place.Id);
+            await _firestoreService.UploadPublicPlaceAsync(place);
+        }
+
+        public async Task DeletePrivatePlaceAsync(string userId, string cloudId, bool ignoreNotFound = false)
+        {
+            _logger.LogInformation("Private cloud delete requested for place {CloudId}", cloudId);
+            await _firestoreService.DeletePrivatePlaceAsync(userId, cloudId, ignoreNotFound);
+        }
+
+        public async Task DeletePublicPlaceAsync(string cloudId, bool ignoreNotFound = false)
+        {
+            _logger.LogInformation("Public cloud delete requested for place {CloudId}", cloudId);
+            await _firestoreService.DeletePublicPlaceAsync(cloudId, ignoreNotFound);
         }
     }
 }

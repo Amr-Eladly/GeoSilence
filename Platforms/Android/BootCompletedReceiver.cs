@@ -48,11 +48,15 @@ namespace GeoSilence
                     await service.RegisterPlacesAsync(places.Select(place => new Place
                     {
                         Id = place.Id,
+                        CloudId = place.CloudId,
+                        OwnerId = place.OwnerId,
                         Name = place.Name,
                         Latitude = place.Latitude,
                         Longitude = place.Longitude,
                         Radius = place.Radius,
                         Mode = (ModeType)place.Mode,
+                        ActivationType = (ActivationType)place.ActivationType,
+                        Visibility = (PlaceVisibility)place.Visibility,
                         IsActive = true
                     }));
                 }
@@ -75,8 +79,8 @@ namespace GeoSilence
                 "geosilence.db");
 
             var db = new SQLiteAsyncConnection(path);
-            await db.CreateTableAsync<PlaceEntity>();
-            return await db.Table<PlaceEntity>().ToListAsync();
+            await PlaceDatabaseSchema.EnsureMigratedAsync(db);
+            return await db.Table<PlaceEntity>().Where(place => !place.IsDeleted).ToListAsync();
         }
     }
 }

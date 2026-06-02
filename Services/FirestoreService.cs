@@ -24,10 +24,10 @@ namespace GeoSilence.Services
             _logger = logger;
         }
 
-        public async Task<IReadOnlyList<CloudPlaceDto>> DownloadPlacesAsync(string userId)
+        public async Task<IReadOnlyList<CloudPlaceDto>> DownloadPrivatePlacesAsync(string userId)
         {
             var token = await RequireTokenAsync();
-            var url = CollectionUrl(userId);
+            var url = PrivateCollectionUrl(userId);
 
             _logger.LogInformation("Firestore download started for user {UserId}", userId);
 
@@ -53,13 +53,42 @@ namespace GeoSilence.Services
             return places;
         }
 
-        public async Task UploadPlaceAsync(string userId, CloudPlaceDto place)
+        public async Task<IReadOnlyList<CloudPlaceDto>> DownloadPublicPlacesAsync()
         {
             var token = await RequireTokenAsync();
-            var url = DocumentUrl(userId, place.Id);
-            var body = JsonSerializer.Serialize(new { fields = CreateFields(place) });
+            var url = PublicCollectionUrl;
 
-            _logger.LogInformation("Firestore upload started for place {CloudId}", place.Id);
+            _logger.LogInformation("Firestore public place download started");
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+            EnsureSuccess(response, payload, "download public places");
+
+            var places = new List<CloudPlaceDto>();
+            using var doc = JsonDocument.Parse(payload);
+
+            if (doc.RootElement.TryGetProperty("documents", out var documents))
+            {
+                foreach (var document in documents.EnumerateArray())
+                {
+                    places.Add(ParseDocument(document));
+                }
+            }
+
+            _logger.LogInformation("Firestore public place download completed with {Count} places", places.Count);
+            return places;
+        }
+
+        public async Task UploadPrivatePlaceAsync(string userId, CloudPlaceDto place)
+        {
+            var token = await RequireTokenAsync();
+            var url = PrivateDocumentUrl(userId, place.Id);
+            var body = JsonSerializer.Serialize(new { fields = CreatePrivateFields(place) });
+
+            _logger.LogInformation("Firestore private upload started for place {CloudId}", place.Id);
 
             using var request = new HttpRequestMessage(HttpMethod.Patch, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -69,7 +98,26 @@ namespace GeoSilence.Services
             var payload = await response.Content.ReadAsStringAsync();
             EnsureSuccess(response, payload, "upload");
 
-            _logger.LogInformation("Firestore upload completed for place {CloudId}", place.Id);
+            _logger.LogInformation("Firestore private upload completed for place {CloudId}", place.Id);
+        }
+
+        public async Task UploadPublicPlaceAsync(CloudPlaceDto place)
+        {
+            var token = await RequireTokenAsync();
+            var url = PublicDocumentUrl(place.Id);
+            var body = JsonSerializer.Serialize(new { fields = CreatePublicFields(place) });
+
+            _logger.LogInformation("Firestore public upload started for place {CloudId}", place.Id);
+
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+            EnsureSuccess(response, payload, "upload public place");
+
+            _logger.LogInformation("Firestore public upload completed for place {CloudId}", place.Id);
         }
 
         public async Task<UserProfile?> DownloadUserProfileAsync(string userId)
@@ -120,21 +168,38 @@ namespace GeoSilence.Services
             EnsureSuccess(response, payload, "delete user profile");
         }
 
-        public async Task DeletePlaceAsync(string userId, string cloudId)
+        public async Task DeletePrivatePlaceAsync(string userId, string cloudId, bool ignoreNotFound = false)
         {
             var token = await RequireTokenAsync();
-            var url = DocumentUrl(userId, cloudId);
+            var url = PrivateDocumentUrl(userId, cloudId);
 
-            _logger.LogInformation("Firestore delete started for place {CloudId}", cloudId);
+            _logger.LogInformation("Firestore private delete started for place {CloudId}", cloudId);
 
             using var request = new HttpRequestMessage(HttpMethod.Delete, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             using var response = await _httpClient.SendAsync(request);
             var payload = await response.Content.ReadAsStringAsync();
-            EnsureSuccess(response, payload, "delete");
+            EnsureSuccess(response, payload, "delete private place", ignoreNotFound);
 
-            _logger.LogInformation("Firestore delete completed for place {CloudId}", cloudId);
+            _logger.LogInformation("Firestore private delete completed for place {CloudId}", cloudId);
+        }
+
+        public async Task DeletePublicPlaceAsync(string cloudId, bool ignoreNotFound = false)
+        {
+            var token = await RequireTokenAsync();
+            var url = PublicDocumentUrl(cloudId);
+
+            _logger.LogInformation("Firestore public delete started for place {CloudId}", cloudId);
+
+            using var request = new HttpRequestMessage(HttpMethod.Delete, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            using var response = await _httpClient.SendAsync(request);
+            var payload = await response.Content.ReadAsStringAsync();
+            EnsureSuccess(response, payload, "delete public place", ignoreNotFound);
+
+            _logger.LogInformation("Firestore public delete completed for place {CloudId}", cloudId);
         }
 
         private async Task<string> RequireTokenAsync()
@@ -146,8 +211,11 @@ namespace GeoSilence.Services
             return token;
         }
 
-        private static void EnsureSuccess(HttpResponseMessage response, string payload, string action)
+        private static void EnsureSuccess(HttpResponseMessage response, string payload, string action, bool ignoreNotFound = false)
         {
+            if (ignoreNotFound && response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return;
+
             if (response.IsSuccessStatusCode)
                 return;
 
@@ -185,12 +253,12 @@ namespace GeoSilence.Services
                 Longitude = ReadDouble(fields, "longitude"),
                 Radius = ReadDouble(fields, "radius"),
                 Mode = ReadString(fields, "mode"),
-                IsActive = ReadBool(fields, "isActive"),
-                IsPublic = ReadBool(fields, "isPublic"),
-                Deleted = ReadBool(fields, "deleted"),
+                ActivationType = ReadOptionalString(fields, "activationType", ActivationType.Automatic.ToString()),
+                Visibility = ReadOptionalString(fields, "visibility", InferVisibility(document)),
+                Deleted = ReadOptionalBool(fields, "deleted"),
                 CreatedAtUtcMs = ReadTimestamp(fields, "createdAt"),
                 UpdatedAtUtcMs = ReadTimestamp(fields, "updatedAt"),
-                Version = ReadInt(fields, "version")
+                Version = ReadOptionalInt(fields, "version", 1)
             };
         }
 
@@ -214,7 +282,7 @@ namespace GeoSilence.Services
             };
         }
 
-        private static Dictionary<string, object> CreateFields(CloudPlaceDto place)
+        private static Dictionary<string, object> CreatePrivateFields(CloudPlaceDto place)
         {
             return new Dictionary<string, object>
             {
@@ -225,12 +293,29 @@ namespace GeoSilence.Services
                 ["longitude"] = DoubleValue(place.Longitude),
                 ["radius"] = DoubleValue(place.Radius),
                 ["mode"] = StringValue(place.Mode),
-                ["isActive"] = BoolValue(place.IsActive),
-                ["isPublic"] = BoolValue(place.IsPublic),
+                ["activationType"] = StringValue(place.ActivationType),
+                ["visibility"] = StringValue(place.Visibility),
                 ["deleted"] = BoolValue(place.Deleted),
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
                 ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs),
                 ["version"] = IntegerValue(place.Version)
+            };
+        }
+
+        private static Dictionary<string, object> CreatePublicFields(CloudPlaceDto place)
+        {
+            return new Dictionary<string, object>
+            {
+                ["id"] = StringValue(place.Id),
+                ["ownerId"] = StringValue(place.OwnerId),
+                ["name"] = StringValue(place.Name),
+                ["latitude"] = DoubleValue(place.Latitude),
+                ["longitude"] = DoubleValue(place.Longitude),
+                ["radius"] = DoubleValue(place.Radius),
+                ["mode"] = StringValue(place.Mode),
+                ["activationType"] = StringValue(place.ActivationType),
+                ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
+                ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs)
             };
         }
 
@@ -275,24 +360,26 @@ namespace GeoSilence.Services
             return string.Empty;
         }
 
-        private static string ReadOptionalString(JsonElement fields, string name)
+        private static string ReadOptionalString(JsonElement fields, string name, string defaultValue = "")
         {
             if (!fields.TryGetProperty(name, out var value))
-                return string.Empty;
+                return defaultValue;
 
             if (value.TryGetProperty("stringValue", out var stringValue))
                 return stringValue.GetString() ?? string.Empty;
 
-            return string.Empty;
+            return defaultValue;
         }
 
-        private static bool ReadBool(JsonElement fields, string name)
+        private static bool ReadOptionalBool(JsonElement fields, string name, bool defaultValue = false)
         {
-            var value = fields.GetProperty(name);
+            if (!fields.TryGetProperty(name, out var value))
+                return defaultValue;
+
             if (value.TryGetProperty("booleanValue", out var boolValue))
                 return boolValue.GetBoolean();
 
-            return false;
+            return defaultValue;
         }
 
         private static double ReadDouble(JsonElement fields, string name)
@@ -310,16 +397,18 @@ namespace GeoSilence.Services
             return 0;
         }
 
-        private static int ReadInt(JsonElement fields, string name)
+        private static int ReadOptionalInt(JsonElement fields, string name, int defaultValue = 0)
         {
-            var value = fields.GetProperty(name);
+            if (!fields.TryGetProperty(name, out var value))
+                return defaultValue;
+
             if (value.TryGetProperty("integerValue", out var intValue) &&
                 int.TryParse(intValue.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
             {
                 return parsed;
             }
 
-            return 0;
+            return defaultValue;
         }
 
         private static long ReadTimestamp(JsonElement fields, string name)
@@ -334,16 +423,30 @@ namespace GeoSilence.Services
             return 0;
         }
 
+        private static string InferVisibility(JsonElement document)
+        {
+            var name = document.GetProperty("name").GetString() ?? string.Empty;
+            return name.Contains("/publicPlaces/", StringComparison.Ordinal)
+                ? PlaceVisibility.Public.ToString()
+                : PlaceVisibility.Private.ToString();
+        }
+
         private static string ProjectUrl =>
             $"https://firestore.googleapis.com/v1/projects/{FirebaseConfig.ProjectId}/databases/(default)/documents";
 
         private static string UserDocumentUrl(string userId) =>
             $"{ProjectUrl}/users/{userId}";
 
-        private static string CollectionUrl(string userId) =>
+        private static string PrivateCollectionUrl(string userId) =>
             $"{ProjectUrl}/users/{userId}/places";
 
-        private static string DocumentUrl(string userId, string cloudId) =>
-            $"{CollectionUrl(userId)}/{cloudId}";
+        private static string PrivateDocumentUrl(string userId, string cloudId) =>
+            $"{PrivateCollectionUrl(userId)}/{cloudId}";
+
+        private static string PublicCollectionUrl =>
+            $"{ProjectUrl}/publicPlaces";
+
+        private static string PublicDocumentUrl(string cloudId) =>
+            $"{PublicCollectionUrl}/{cloudId}";
     }
 }

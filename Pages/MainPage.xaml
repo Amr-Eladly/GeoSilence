@@ -283,18 +283,19 @@
 
             <Frame
                 x:Name="PlaceFormCard"
-                Margin="20,20,20,184"
-                Padding="18"
+                Margin="16,16,16,120"
+                Padding="14"
                 BackgroundColor="White"
                 CornerRadius="20"
                 HasShadow="True"
                 VerticalOptions="End">
 
-                <VerticalStackLayout Spacing="12">
+                <ScrollView>
+                <VerticalStackLayout Spacing="8">
                     <Label
                         x:Name="PlaceFormTitle"
                         Text="Add Place"
-                        FontSize="20"
+                        FontSize="17"
                         FontAttributes="Bold"/>
 
                     <Entry
@@ -303,7 +304,9 @@
                         Focused="OnPlaceFormInputFocused"
                         Unfocused="OnPlaceFormInputUnfocused"
                         BackgroundColor="White"
-                        TextColor="Black"/>
+                        TextColor="Black"
+                        HeightRequest="40"
+                        FontSize="13"/>
 
                     <VerticalStackLayout Spacing="0">
                         <Button
@@ -314,7 +317,9 @@
                             BorderColor="#DDDDDD"
                             BorderWidth="1"
                             TextColor="Black"
-                            HorizontalOptions="Fill"/>
+                            HorizontalOptions="Fill"
+                            HeightRequest="38"
+                            FontSize="13"/>
 
                         <HorizontalStackLayout
                             Spacing="10"
@@ -353,17 +358,23 @@
                                 Text="Silent"
                                 Clicked="OnModeOptionClicked"
                                 BackgroundColor="#F7F7F7"
-                                TextColor="Black"/>
+                                TextColor="Black"
+                                HeightRequest="34"
+                                FontSize="12"/>
                             <Button
                                 Text="Vibrate"
                                 Clicked="OnModeOptionClicked"
                                 BackgroundColor="#F7F7F7"
-                                TextColor="Black"/>
+                                TextColor="Black"
+                                HeightRequest="34"
+                                FontSize="12"/>
                             <Button
                                 Text="Normal"
                                 Clicked="OnModeOptionClicked"
                                 BackgroundColor="#F7F7F7"
-                                TextColor="Black"/>
+                                TextColor="Black"
+                                HeightRequest="34"
+                                FontSize="12"/>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
 
@@ -374,7 +385,85 @@
                         Focused="OnPlaceFormInputFocused"
                         Unfocused="OnPlaceFormInputUnfocused"
                         BackgroundColor="White"
-                        TextColor="Black"/>
+                        TextColor="Black"
+                        HeightRequest="40"
+                        FontSize="13"/>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label
+                            Text="Activation Type"
+                            FontAttributes="Bold"
+                            FontSize="13"
+                            TextColor="#111827"/>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Border
+                                Stroke="#D1D5DB"
+                                StrokeShape="RoundRectangle 14"
+                                Padding="12,10">
+                                <HorizontalStackLayout Spacing="10">
+                                    <RadioButton
+                                        x:Name="ActivationAutomaticRadio"
+                                        GroupName="ActivationType"
+                                        Content="Automatic"
+                                        IsChecked="True"
+                                        FontSize="12"
+                                        CheckedChanged="OnActivationTypeCheckedChanged"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border
+                                Grid.Column="1"
+                                Stroke="#D1D5DB"
+                                StrokeShape="RoundRectangle 14"
+                                Padding="12,10">
+                                <HorizontalStackLayout Spacing="10">
+                                    <RadioButton
+                                        x:Name="ActivationConfirmRadio"
+                                        GroupName="ActivationType"
+                                        Content="Confirm First"
+                                        FontSize="12"
+                                        CheckedChanged="OnActivationTypeCheckedChanged"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Label
+                            Text="Visibility"
+                            FontAttributes="Bold"
+                            FontSize="13"
+                            TextColor="#111827"/>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Border
+                                Stroke="#D1D5DB"
+                                StrokeShape="RoundRectangle 14"
+                                Padding="12,10">
+                                <HorizontalStackLayout Spacing="10">
+                                    <RadioButton
+                                        x:Name="VisibilityPrivateRadio"
+                                        GroupName="Visibility"
+                                        Content="Private"
+                                        IsChecked="True"
+                                        FontSize="12"
+                                        CheckedChanged="OnVisibilityCheckedChanged"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Border
+                                Grid.Column="1"
+                                Stroke="#D1D5DB"
+                                StrokeShape="RoundRectangle 14"
+                                Padding="12,10">
+                                <HorizontalStackLayout Spacing="10">
+                                    <RadioButton
+                                        x:Name="VisibilityPublicRadio"
+                                        GroupName="Visibility"
+                                        Content="Public"
+                                        FontSize="12"
+                                        CheckedChanged="OnVisibilityCheckedChanged"/>
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
@@ -382,15 +471,20 @@
                             Text="Cancel"
                             Clicked="OnCancelPlaceFormClicked"
                             BackgroundColor="#EEEEEE"
-                            TextColor="Black"/>
+                            TextColor="Black"
+                            HeightRequest="38"
+                            FontSize="13"/>
 
                         <Button
                             x:Name="PlaceFormSaveButton"
                             Grid.Column="1"
                             Text="Save"
-                            Clicked="OnSavePlaceFormClicked"/>
+                            Clicked="OnSavePlaceFormClicked"
+                            HeightRequest="38"
+                            FontSize="13"/>
                     </Grid>
                 </VerticalStackLayout>
+                </ScrollView>
             </Frame>
         </Grid>
 

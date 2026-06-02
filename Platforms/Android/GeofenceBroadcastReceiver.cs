@@ -143,8 +143,16 @@ namespace GeoSilence
                 var enteredPlace = FindFirstMatchingPlace(places, triggeredIds);
                 if (enteredPlace != null)
                 {
-                    GeoLog.Write("MODE", $"ENTER -> applying {enteredPlace.Mode} for '{enteredPlace.Name}'");
-                    modeService.ApplyZoneMode(enteredPlace.Mode);
+                    if ((ActivationType)enteredPlace.ActivationType == ActivationType.ConfirmFirst)
+                    {
+                        GeoLog.Write("MODE", $"ENTER -> confirmation requested for '{enteredPlace.Name}'");
+                        PlaceActivationNotificationService.ShowActivationRequest(context, enteredPlace);
+                    }
+                    else
+                    {
+                        GeoLog.Write("MODE", $"ENTER -> applying {enteredPlace.Mode} for '{enteredPlace.Name}'");
+                        modeService.ApplyZoneMode((ModeType)enteredPlace.Mode);
+                    }
                 }
                 else
                 {
@@ -155,6 +163,9 @@ namespace GeoSilence
 
             if (transition == Geofence.GeofenceTransitionExit)
             {
+                foreach (var place in places.Where(place => triggeredIds.Contains(place.Id.ToString())))
+                    PlaceActivationNotificationService.CancelActivationRequest(context, place.Id);
+
                 if (activeIds.Count == 0)
                 {
                     GeoLog.Write("MODE", "EXIT (no active zones) -> restoring original mode");
@@ -167,32 +178,18 @@ namespace GeoSilence
                 {
                     GeoLog.Write("MODE",
                         $"EXIT but still inside '{activePlace.Name}' -> applying {activePlace.Mode}");
-                    modeService.ApplyZoneMode(activePlace.Mode);
+                    if ((ActivationType)activePlace.ActivationType == ActivationType.Automatic)
+                        modeService.ApplyZoneMode((ModeType)activePlace.Mode);
                 }
             }
         }
 
-        private static Place? FindFirstMatchingPlace(
+        private static PlaceEntity? FindFirstMatchingPlace(
             IEnumerable<PlaceEntity> places,
             IEnumerable<string> ids)
         {
             var idSet = ids.ToHashSet();
-            var place = places.FirstOrDefault(place =>
-                idSet.Contains(place.Id.ToString()));
-
-            if (place == null)
-                return null;
-
-            return new Place
-            {
-                Id = place.Id,
-                Name = place.Name,
-                Latitude = place.Latitude,
-                Longitude = place.Longitude,
-                Radius = place.Radius,
-                Mode = (ModeType)place.Mode,
-                IsActive = true
-            };
+            return places.FirstOrDefault(place => idSet.Contains(place.Id.ToString()));
         }
 
         private static async System.Threading.Tasks.Task<List<PlaceEntity>> LoadPlaces()
@@ -204,8 +201,10 @@ namespace GeoSilence
                 "geosilence.db");
 
             var db = new SQLiteAsyncConnection(path);
-            await db.CreateTableAsync<PlaceEntity>();
-            return await db.Table<PlaceEntity>().ToListAsync();
+            await PlaceDatabaseSchema.EnsureMigratedAsync(db);
+            return await db.Table<PlaceEntity>()
+                .Where(place => !place.IsDeleted && place.Visibility == (int)PlaceVisibility.Private)
+                .ToListAsync();
         }
 
         private static HashSet<string> ReadActiveIds(Context context)

@@ -33,7 +33,7 @@ service cloud.firestore {
       && request.resource.data.photoStoragePath is string;
     }
 
-    function validPlace(userId) {
+    function validPrivatePlace(userId) {
       return request.resource.data.keys().hasOnly([
         'id',
         'ownerId',
@@ -42,8 +42,8 @@ service cloud.firestore {
         'longitude',
         'radius',
         'mode',
-        'isActive',
-        'isPublic',
+        'activationType',
+        'visibility',
         'deleted',
         'createdAt',
         'updatedAt',
@@ -64,10 +64,40 @@ service cloud.firestore {
       && request.resource.data.radius >= 25
       && request.resource.data.radius <= 5000
       && request.resource.data.mode in ['Silent', 'Vibrate', 'Normal']
-      && request.resource.data.isActive is bool
-      && request.resource.data.isPublic is bool
+      && request.resource.data.activationType in ['Automatic', 'ConfirmFirst']
+      && request.resource.data.visibility in ['Private', 'Public']
       && request.resource.data.deleted is bool
       && request.resource.data.version is int;
+    }
+
+    function validPublicPlace() {
+      return request.resource.data.keys().hasOnly([
+        'id',
+        'ownerId',
+        'name',
+        'latitude',
+        'longitude',
+        'radius',
+        'mode',
+        'activationType',
+        'createdAt',
+        'updatedAt'
+      ])
+      && request.resource.data.ownerId == request.auth.uid
+      && request.resource.data.name is string
+      && request.resource.data.name.size() > 0
+      && request.resource.data.name.size() <= 120
+      && request.resource.data.latitude is number
+      && request.resource.data.latitude >= -90
+      && request.resource.data.latitude <= 90
+      && request.resource.data.longitude is number
+      && request.resource.data.longitude >= -180
+      && request.resource.data.longitude <= 180
+      && request.resource.data.radius is number
+      && request.resource.data.radius >= 25
+      && request.resource.data.radius <= 5000
+      && request.resource.data.mode in ['Silent', 'Vibrate', 'Normal']
+      && request.resource.data.activationType in ['Automatic', 'ConfirmFirst'];
     }
 
     match /users/{userId} {
@@ -79,20 +109,17 @@ service cloud.firestore {
 
       match /places/{placeId} {
         allow get, list: if isOwner(userId);
-        allow create, update: if isOwner(userId) && validPlace(userId);
+        allow create, update: if isOwner(userId) && validPrivatePlace(userId);
         allow delete: if isOwner(userId);
       }
     }
 
     match /publicPlaces/{placeId} {
-      allow get, list: if signedIn()
-        && resource.data.isPublic == true
-        && resource.data.deleted == false;
+      allow get, list: if signedIn();
 
       allow create, update: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.isPublic == true
-        && validPlace(request.auth.uid);
+        && validPublicPlace();
 
       allow delete: if signedIn()
         && resource.data.ownerId == request.auth.uid;

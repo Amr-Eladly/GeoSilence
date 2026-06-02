@@ -39,7 +39,8 @@ namespace GeoSilence.Services
                 Longitude = place.Longitude,
                 Radius = place.Radius,
                 Mode = (int)place.Mode,
-                IsPublic = false,
+                ActivationType = (int)place.ActivationType,
+                Visibility = (int)place.Visibility,
                 IsDeleted = false,
                 IsDirty = true,
                 OwnerId = userId,
@@ -50,6 +51,8 @@ namespace GeoSilence.Services
 
             await _db.InsertAsync(entity);
             place.Id = entity.Id;
+            place.CloudId = entity.CloudId;
+            place.OwnerId = entity.OwnerId;
 
             return entity;
         }
@@ -64,7 +67,8 @@ namespace GeoSilence.Services
             entity.Longitude = place.Longitude;
             entity.Radius = place.Radius;
             entity.Mode = (int)place.Mode;
-            entity.IsPublic = false;
+            entity.ActivationType = (int)place.ActivationType;
+            entity.Visibility = (int)place.Visibility;
             entity.IsDeleted = false;
             entity.IsDirty = true;
             entity.UpdatedAtUtcMs = now;
@@ -163,6 +167,10 @@ namespace GeoSilence.Services
                 Longitude = entity.Longitude,
                 Radius = entity.Radius,
                 Mode = (ModeType)entity.Mode,
+                ActivationType = (ActivationType)entity.ActivationType,
+                Visibility = (PlaceVisibility)entity.Visibility,
+                CloudId = entity.CloudId,
+                OwnerId = entity.OwnerId,
                 IsActive = true
             };
         }

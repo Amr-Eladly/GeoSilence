@@ -13,6 +13,7 @@ namespace GeoSilence.PageModels
         private readonly BackgroundGeofenceService _backgroundGeofenceService;
         private readonly PlaceRepository _repo;
         private readonly SyncService _syncService;
+        private readonly CloudPlaceRepository _cloudPlaceRepository;
 
         private CancellationTokenSource? _cts;
 
@@ -29,6 +30,9 @@ namespace GeoSilence.PageModels
 
         [ObservableProperty]
         private ObservableCollection<Place> nearbyPlaces = new();
+
+        [ObservableProperty]
+        private ObservableCollection<Place> publicPlaces = new();
 
         [ObservableProperty]
         private bool isLoading = true;
@@ -49,7 +53,8 @@ namespace GeoSilence.PageModels
             ModeService modeService,
             BackgroundGeofenceService backgroundGeofenceService,
             PlaceRepository repo,
-            SyncService syncService)
+            SyncService syncService,
+            CloudPlaceRepository cloudPlaceRepository)
         {
             _locationService = locationService;
             _geoService = geoService;
@@ -57,6 +62,7 @@ namespace GeoSilence.PageModels
             _backgroundGeofenceService = backgroundGeofenceService;
             _repo = repo;
             _syncService = syncService;
+            _cloudPlaceRepository = cloudPlaceRepository;
         }
 
         public async Task InitializeAsync()
@@ -68,9 +74,10 @@ namespace GeoSilence.PageModels
             _allPlaces.Clear();
             _allPlaces.AddRange(places);
 
-            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
+            await LoadPublicPlacesAsync();
 
-            await LoadAsync(); // ✅ correct initial load
+            await LoadAsync();
         }
 
         public async Task StartTrackingAsync()
@@ -97,7 +104,14 @@ namespace GeoSilence.PageModels
             _cts?.Cancel();
         }
 
-        public async Task AddPlace(double lat, double lng, string name, ModeType mode, double radius)
+        public async Task AddPlace(
+            double lat,
+            double lng,
+            string name,
+            ModeType mode,
+            double radius,
+            ActivationType activationType,
+            PlaceVisibility visibility)
         {
             var place = new Place
             {
@@ -106,30 +120,56 @@ namespace GeoSilence.PageModels
                 Longitude = lng,
                 Radius = radius,
                 Mode = mode,
+                ActivationType = activationType,
+                Visibility = visibility,
                 IsActive = true
             };
 
             var entity = await _repo.AddPlaceAsync(place);
             _allPlaces.Add(place);
 
-            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            await _syncService.SyncPlaceAsync(entity.Id);
+            try
+            {
+                await _syncService.SyncPlaceAsync(entity.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
+            }
+            await LoadPublicPlacesAsync();
 
             await LoadAsync();
         }
 
-        public async Task UpdatePlace(Place place, string newName, ModeType newMode, double radius)
+        public async Task UpdatePlace(
+            Place place,
+            string newName,
+            ModeType newMode,
+            double radius,
+            ActivationType activationType,
+            PlaceVisibility visibility)
         {
             place.Name = newName;
             place.Mode = newMode;
             place.Radius = radius;
+            place.ActivationType = activationType;
+            place.Visibility = visibility;
 
             await _repo.UpdatePlaceAsync(place);
 
-            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            await _syncService.SyncPlaceAsync(place.Id);
+            try
+            {
+                await _syncService.SyncPlaceAsync(place.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
+            }
+            await LoadPublicPlacesAsync();
 
             await LoadAsync();
         }
@@ -140,11 +180,31 @@ namespace GeoSilence.PageModels
 
             await _repo.DeletePlaceAsync(place.Id);
 
-            await _backgroundGeofenceService.RegisterPlacesAsync(_allPlaces);
+            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            await _syncService.SyncDeleteAsync(place.Id);
+            try
+            {
+                await _syncService.SyncDeleteAsync(place.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC DELETE WARNING: {ex.Message}");
+            }
+            await LoadPublicPlacesAsync();
 
             await LoadAsync();
+        }
+
+        public async Task AddPublicPlaceToMyPlacesAsync(Place publicPlace)
+        {
+            await AddPlace(
+                publicPlace.Latitude,
+                publicPlace.Longitude,
+                publicPlace.Name,
+                publicPlace.Mode,
+                publicPlace.Radius,
+                ActivationType.Automatic,
+                PlaceVisibility.Private);
         }
 
         public async Task LoadAsync()
@@ -194,7 +254,9 @@ namespace GeoSilence.PageModels
             List<Place> sorted)
         {
             var activePlace = sorted
-                .Where(place => place.IsActive)
+                .Where(place => place.IsActive &&
+                                place.Visibility == PlaceVisibility.Private &&
+                                place.ActivationType == ActivationType.Automatic)
                 .FirstOrDefault(place => _geoService.IsInside(location, place));
 
             if (activePlace == null)
@@ -231,6 +293,62 @@ namespace GeoSilence.PageModels
         public async Task<GeoSilence.Models.Location?> GetCurrentLocationForMap()
         {
             return await _locationService.GetCurrentLocationAsync();
+        }
+
+        private IEnumerable<Place> GetPrivatePlaces()
+        {
+            return _allPlaces.Where(place => place.Visibility == PlaceVisibility.Private);
+        }
+
+        private async Task LoadPublicPlacesAsync()
+        {
+            List<Place> mapped;
+
+            try
+            {
+                var remotePlaces = await _cloudPlaceRepository.DownloadPublicPlacesAsync();
+                mapped = remotePlaces
+                    .Where(place => !place.Deleted)
+                    .Select(place => new Place
+                    {
+                        CloudId = place.Id,
+                        OwnerId = place.OwnerId,
+                        Name = place.Name,
+                        Latitude = place.Latitude,
+                        Longitude = place.Longitude,
+                        Radius = place.Radius,
+                        Mode = ParseMode(place.Mode),
+                        ActivationType = ParseActivationType(place.ActivationType),
+                        Visibility = PlaceVisibility.Public,
+                        IsActive = false
+                    })
+                    .OrderBy(place => place.Name)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"PUBLIC PLACES LOAD WARNING: {ex.Message}");
+                mapped = new List<Place>();
+            }
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                PublicPlaces.Clear();
+                foreach (var place in mapped)
+                    PublicPlaces.Add(place);
+            });
+        }
+
+        private static ModeType ParseMode(string value)
+        {
+            return Enum.TryParse<ModeType>(value, true, out var mode) ? mode : ModeType.Silent;
+        }
+
+        private static ActivationType ParseActivationType(string value)
+        {
+            return Enum.TryParse<ActivationType>(value, true, out var activationType)
+                ? activationType
+                : ActivationType.Automatic;
         }
     }
 }

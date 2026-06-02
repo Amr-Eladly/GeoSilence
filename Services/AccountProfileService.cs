@@ -231,10 +231,16 @@ namespace GeoSilence.Services
         {
             var user = RequireCurrentUser();
             var profile = await EnsureLoadedAsync();
-            var remotePlaces = await _cloudPlaceRepository.DownloadPlacesAsync(user.Uid);
+            var remotePlaces = await _cloudPlaceRepository.DownloadPrivatePlacesAsync(user.Uid);
+            var ownedPublicPlaces = (await _cloudPlaceRepository.DownloadPublicPlacesAsync())
+                .Where(place => string.Equals(place.OwnerId, user.Uid, StringComparison.Ordinal))
+                .ToList();
 
             foreach (var place in remotePlaces)
-                await _cloudPlaceRepository.DeletePlaceAsync(user.Uid, place.Id);
+                await _cloudPlaceRepository.DeletePrivatePlaceAsync(user.Uid, place.Id, ignoreNotFound: true);
+
+            foreach (var place in ownedPublicPlaces)
+                await _cloudPlaceRepository.DeletePublicPlaceAsync(place.Id, ignoreNotFound: true);
 
             await _firestoreService.DeleteUserProfileAsync(user.Uid);
 

@@ -11,8 +11,12 @@ namespace GeoSilence.Models
     {
         public int Id { get; set; }
 
+        public string CloudId { get; set; } = string.Empty;
+
+        public string OwnerId { get; set; } = string.Empty;
+
         [ObservableProperty]
-        private string name;
+        private string name = string.Empty;
 
         [ObservableProperty]
         private double distance;
@@ -31,6 +35,12 @@ namespace GeoSilence.Models
 
         [ObservableProperty]
         private ModeType mode;
+
+        [ObservableProperty]
+        private ActivationType activationType = ActivationType.Automatic;
+
+        [ObservableProperty]
+        private PlaceVisibility visibility = PlaceVisibility.Private;
 
         [ObservableProperty]
         private bool isActive = true;

@@ -14,6 +14,7 @@ namespace GeoSilence.Pages
         private readonly AccountProfileService _accountProfileService;
         private readonly SearchService _searchService = new();
         private NotifyCollectionChangedEventHandler? _collectionHandler;
+        private NotifyCollectionChangedEventHandler? _publicCollectionHandler;
         private Pin? _searchResultPin;
         private Pin? _focusedPlacePin;
         private CancellationTokenSource? _searchCts;
@@ -22,13 +23,15 @@ namespace GeoSilence.Pages
         private Place? _editingPlace;
         private readonly VisualElement? _placeFormCard;
         private ModeType _selectedMode = ModeType.Silent;
+        private ActivationType _selectedActivationType = ActivationType.Automatic;
+        private PlaceVisibility _selectedVisibility = PlaceVisibility.Private;
         private double _bottomSheetPanStartHeight;
         private bool _isSearching;
         private bool _isSavingPlace;
 
         private const double BottomSheetCollapsedHeight = 160;
         private const double BottomSheetExpandedHeight = 360;
-        private const double KeyboardFormOffset = -230;
+        private const double KeyboardFormOffset = -150;
 
         public MainPage(HomeViewModel vm, AccountProfileService accountProfileService)
         {
@@ -142,15 +145,18 @@ namespace GeoSilence.Pages
             MainMap.Pins.Clear();
             _focusedPlacePin = null;
 
-            foreach (var place in _vm.NearbyPlaces.ToList())
+            foreach (var place in _vm.NearbyPlaces.Where(place => place.Visibility == PlaceVisibility.Private).ToList())
             {
                 var pin = new Pin
                 {
                     Label = place.Name,
+                    Address = $"{place.Mode} · {place.Radius:F0} m",
+                    Type = PinType.Place,
                     Location = new Microsoft.Maui.Devices.Sensors.Location(
                         place.Latitude,
                         place.Longitude)
                 };
+                pin.MarkerClicked += OnMapPinClicked;
 
                 MainMap.Pins.Add(pin);
 
@@ -160,6 +166,22 @@ namespace GeoSilence.Pages
                 {
                     _focusedPlacePin = pin;
                 }
+            }
+
+            foreach (var place in _vm.PublicPlaces.ToList())
+            {
+                var pin = new Pin
+                {
+                    Label = place.Name,
+                    Address = $"{place.Mode} · {place.Radius:F0} m",
+                    Type = PinType.SearchResult,
+                    Location = new Microsoft.Maui.Devices.Sensors.Location(
+                        place.Latitude,
+                        place.Longitude),
+                    BindingContext = place
+                };
+                pin.MarkerClicked += OnMapPinClicked;
+                MainMap.Pins.Add(pin);
             }
 
             if (_searchResultPin != null)
@@ -244,6 +266,8 @@ namespace GeoSilence.Pages
             PlaceNameEntry.Text = suggestedName ?? string.Empty;
             PlaceRadiusEntry.Text = place?.Radius.ToString("F0", CultureInfo.InvariantCulture) ?? "50";
             SetSelectedMode(place?.Mode ?? ModeType.Silent);
+            SetSelectedActivationType(place?.ActivationType ?? ActivationType.Automatic);
+            SetSelectedVisibility(place?.Visibility ?? PlaceVisibility.Private);
             PlaceModeDropdown.IsVisible = false;
             PlacesBottomSheet.HeightRequest = BottomSheetCollapsedHeight;
             PlacesBottomSheet.InputTransparent = true;
@@ -283,6 +307,40 @@ namespace GeoSilence.Pages
             PlaceModeButton.Text = mode.ToString();
         }
 
+        private void SetSelectedActivationType(ActivationType activationType)
+        {
+            _selectedActivationType = activationType;
+            ActivationAutomaticRadio.IsChecked = activationType == ActivationType.Automatic;
+            ActivationConfirmRadio.IsChecked = activationType == ActivationType.ConfirmFirst;
+        }
+
+        private void SetSelectedVisibility(PlaceVisibility visibility)
+        {
+            _selectedVisibility = visibility;
+            VisibilityPrivateRadio.IsChecked = visibility == PlaceVisibility.Private;
+            VisibilityPublicRadio.IsChecked = visibility == PlaceVisibility.Public;
+        }
+
+        private void OnActivationTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (!e.Value || sender is not RadioButton radioButton)
+                return;
+
+            _selectedActivationType = radioButton == ActivationConfirmRadio
+                ? ActivationType.ConfirmFirst
+                : ActivationType.Automatic;
+        }
+
+        private void OnVisibilityCheckedChanged(object sender, CheckedChangedEventArgs e)
+        {
+            if (!e.Value || sender is not RadioButton radioButton)
+                return;
+
+            _selectedVisibility = radioButton == VisibilityPublicRadio
+                ? PlaceVisibility.Public
+                : PlaceVisibility.Private;
+        }
+
         private void OnCancelPlaceFormClicked(object sender, EventArgs e)
         {
             HidePlaceForm();
@@ -311,7 +369,7 @@ namespace GeoSilence.Pages
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"SAVE PLACE ERROR: {ex}");
-                await DisplayAlert("Save Error", "Could not save the place right now.", "OK");
+                await DisplayAlert("Save Error", ex.Message, "OK");
             }
             finally
             {
@@ -325,6 +383,8 @@ namespace GeoSilence.Pages
             PlaceFormOverlay.IsVisible = false;
             _editingPlace = null;
             PlaceModeDropdown.IsVisible = false;
+            PlaceNameEntry.Unfocus();
+            PlaceRadiusEntry.Unfocus();
             if (_placeFormCard != null)
                 _placeFormCard.TranslationY = 0;
             PlacesBottomSheet.InputTransparent = false;
@@ -361,7 +421,9 @@ namespace GeoSilence.Pages
                     _pendingPlaceLocation.Longitude,
                     name,
                     _selectedMode,
-                    radius);
+                    radius,
+                    _selectedActivationType,
+                    _selectedVisibility);
 
                 ClearSearchState();
             }
@@ -371,7 +433,9 @@ namespace GeoSilence.Pages
                     _editingPlace,
                     name,
                     _selectedMode,
-                    radius);
+                    radius,
+                    _selectedActivationType,
+                    _selectedVisibility);
             }
 
             return true;
@@ -545,6 +609,8 @@ namespace GeoSilence.Pages
 
                 _collectionHandler = OnPlacesChanged;
                 _vm.NearbyPlaces.CollectionChanged += _collectionHandler;
+                _publicCollectionHandler = OnPlacesChanged;
+                _vm.PublicPlaces.CollectionChanged += _publicCollectionHandler;
 
                 await SetupMapAsync();
                 UpdateSearchUiState();
@@ -558,7 +624,7 @@ namespace GeoSilence.Pages
             }
             catch (Exception ex)
             {
-                await DisplayAlert("Error", ex.ToString(), "OK");
+                await DisplayAlert("Error", ex.Message, "OK");
             }
         }
 
@@ -572,6 +638,33 @@ namespace GeoSilence.Pages
 
             if (_collectionHandler != null)
                 _vm.NearbyPlaces.CollectionChanged -= _collectionHandler;
+
+            if (_publicCollectionHandler != null)
+                _vm.PublicPlaces.CollectionChanged -= _publicCollectionHandler;
+        }
+
+        private async void OnMapPinClicked(object? sender, PinClickedEventArgs e)
+        {
+            if (sender is not Pin pin)
+                return;
+
+            if (pin.BindingContext is Place publicPlace && publicPlace.Visibility == PlaceVisibility.Public)
+            {
+                e.HideInfoWindow = true;
+                await ShowPublicPlaceDetailsAsync(publicPlace);
+            }
+        }
+
+        private async Task ShowPublicPlaceDetailsAsync(Place publicPlace)
+        {
+            var addToMyPlaces = await DisplayAlert(
+                publicPlace.Name,
+                $"Mode: {publicPlace.Mode}\nRadius: {publicPlace.Radius:F0} m",
+                "Add To My Places",
+                "Close");
+
+            if (addToMyPlaces)
+                await _vm.AddPublicPlaceToMyPlacesAsync(publicPlace);
         }
 
         private async Task LoadAvatarAsync()

@@ -28,18 +28,37 @@ namespace GeoSilence.Services
             timeoutCts.CancelAfter(RequestTimeout);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            using var response = await Client.SendAsync(request, timeoutCts.Token);
-            response.EnsureSuccessStatusCode();
+            HttpResponseMessage response;
+            try
+            {
+                response = await Client.SendAsync(request, timeoutCts.Token);
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (!response.IsSuccessStatusCode)
+                return null;
 
             var payload = await response.Content.ReadAsStringAsync(timeoutCts.Token);
-            var searchResponse = JsonSerializer.Deserialize<GooglePlaceSearchResponse>(
-                payload,
-                JsonOptions);
+            GooglePlaceSearchResponse? searchResponse;
+
+            try
+            {
+                searchResponse = JsonSerializer.Deserialize<GooglePlaceSearchResponse>(
+                    payload,
+                    JsonOptions);
+            }
+            catch
+            {
+                return null;
+            }
 
             if (!string.Equals(searchResponse?.Status, "OK", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(searchResponse?.Status, "ZERO_RESULTS", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException(searchResponse?.ErrorMessage ?? "Search failed.");
+                return null;
             }
 
             var result = searchResponse?.Results?.FirstOrDefault();

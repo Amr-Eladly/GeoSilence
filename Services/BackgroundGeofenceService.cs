@@ -79,7 +79,7 @@ namespace GeoSilence.Services
             }
 
             var activePlaces = places
-                .Where(place => place.IsActive)
+                .Where(place => place.IsActive && place.Visibility == PlaceVisibility.Private)
                 .Take(100)
                 .ToList();
 

@@ -64,7 +64,14 @@ namespace GeoSilence.Services
             var dirtyPlaces = await _databaseService.GetDirtyByOwnerIdAsync(userId);
             foreach (var entity in dirtyPlaces)
             {
-                await SyncEntityAsync(userId, entity);
+                try
+                {
+                    await SyncEntityAsync(userId, entity);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Cloud sync skipped for dirty place {LocalId}", entity.Id);
+                }
             }
         }
 
@@ -80,15 +87,46 @@ namespace GeoSilence.Services
             if (entity.IsDeleted)
             {
                 _logger.LogInformation("Cloud delete started for local place {LocalId}", entity.Id);
-                await _cloudPlaceRepository.DeletePlaceAsync(userId, entity.CloudId);
-                await _databaseService.DeleteAsync(entity.Id);
-                _logger.LogInformation("Cloud delete completed for local place {LocalId}", entity.Id);
+                try
+                {
+                    await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, entity.CloudId, ignoreNotFound: true);
+                    await _cloudPlaceRepository.DeletePublicPlaceAsync(entity.CloudId, ignoreNotFound: true);
+                    await _databaseService.DeleteAsync(entity.Id);
+                    _logger.LogInformation("Cloud delete completed for local place {LocalId}", entity.Id);
+                }
+                catch
+                {
+                    entity.IsDirty = true;
+                    entity.LastSyncedAtUtcMs = null;
+                    await _databaseService.UpdateAsync(entity);
+                    throw;
+                }
                 return;
             }
 
             var dto = MapToDto(entity);
             _logger.LogInformation("Cloud upload started for local place {LocalId}", entity.Id);
-            await _cloudPlaceRepository.UploadPlaceAsync(userId, dto);
+
+            try
+            {
+                if ((PlaceVisibility)entity.Visibility == PlaceVisibility.Public)
+                {
+                    await _cloudPlaceRepository.UploadPublicPlaceAsync(dto);
+                    await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, entity.CloudId, ignoreNotFound: true);
+                }
+                else
+                {
+                    await _cloudPlaceRepository.UploadPrivatePlaceAsync(userId, dto);
+                    await _cloudPlaceRepository.DeletePublicPlaceAsync(entity.CloudId, ignoreNotFound: true);
+                }
+            }
+            catch
+            {
+                entity.IsDirty = true;
+                entity.LastSyncedAtUtcMs = null;
+                await _databaseService.UpdateAsync(entity);
+                throw;
+            }
 
             entity.IsDirty = false;
             entity.LastSyncedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -99,7 +137,13 @@ namespace GeoSilence.Services
         private async Task DownloadAndRestorePlacesAsync(string userId)
         {
             _logger.LogInformation("Cloud download started for user {UserId}", userId);
-            var remotePlaces = await _cloudPlaceRepository.DownloadPlacesAsync(userId);
+            var privatePlaces = await TryDownloadPrivatePlacesAsync(userId);
+            var publicPlaces = await TryDownloadPublicPlacesAsync();
+            var remotePlaces = privatePlaces
+                .Concat(publicPlaces.Where(p => string.Equals(p.OwnerId, userId, StringComparison.Ordinal)))
+                .GroupBy(p => p.Id, StringComparer.Ordinal)
+                .Select(group => group.Last())
+                .ToList();
             var remoteIds = new HashSet<string>(remotePlaces.Select(p => p.Id), StringComparer.Ordinal);
 
             foreach (var remote in remotePlaces)
@@ -119,6 +163,32 @@ namespace GeoSilence.Services
             _logger.LogInformation("Cloud download completed for user {UserId} with {Count} places", userId, remotePlaces.Count);
         }
 
+        private async Task<IReadOnlyList<CloudPlaceDto>> TryDownloadPrivatePlacesAsync(string userId)
+        {
+            try
+            {
+                return await _cloudPlaceRepository.DownloadPrivatePlacesAsync(userId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Private cloud download failed for user {UserId}; continuing with local data", userId);
+                return Array.Empty<CloudPlaceDto>();
+            }
+        }
+
+        private async Task<IReadOnlyList<CloudPlaceDto>> TryDownloadPublicPlacesAsync()
+        {
+            try
+            {
+                return await _cloudPlaceRepository.DownloadPublicPlacesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Public cloud download failed; continuing without public places");
+                return Array.Empty<CloudPlaceDto>();
+            }
+        }
+
         private async Task RestorePlaceAsync(string userId, CloudPlaceDto remote)
         {
             var existing = await _databaseService.GetByCloudIdAsync(remote.Id);
@@ -134,7 +204,8 @@ namespace GeoSilence.Services
                     Longitude = remote.Longitude,
                     Radius = remote.Radius,
                     Mode = (int)ParseMode(remote.Mode),
-                    IsPublic = remote.IsPublic,
+                    ActivationType = (int)ParseActivationType(remote.ActivationType),
+                    Visibility = (int)ParseVisibility(remote.Visibility),
                     IsDeleted = remote.Deleted,
                     IsDirty = false,
                     OwnerId = userId,
@@ -160,7 +231,8 @@ namespace GeoSilence.Services
             existing.Longitude = remote.Longitude;
             existing.Radius = remote.Radius;
             existing.Mode = (int)ParseMode(remote.Mode);
-            existing.IsPublic = remote.IsPublic;
+            existing.ActivationType = (int)ParseActivationType(remote.ActivationType);
+            existing.Visibility = (int)ParseVisibility(remote.Visibility);
             existing.IsDeleted = remote.Deleted;
             existing.OwnerId = userId;
             existing.IsDirty = false;
@@ -183,8 +255,8 @@ namespace GeoSilence.Services
                 Longitude = entity.Longitude,
                 Radius = entity.Radius,
                 Mode = ((ModeType)entity.Mode).ToString(),
-                IsActive = true,
-                IsPublic = entity.IsPublic,
+                ActivationType = ((ActivationType)entity.ActivationType).ToString(),
+                Visibility = ((PlaceVisibility)entity.Visibility).ToString(),
                 Deleted = entity.IsDeleted,
                 CreatedAtUtcMs = entity.CreatedAtUtcMs,
                 UpdatedAtUtcMs = entity.UpdatedAtUtcMs,
@@ -195,6 +267,20 @@ namespace GeoSilence.Services
         private static ModeType ParseMode(string value)
         {
             return Enum.TryParse<ModeType>(value, true, out var mode) ? mode : ModeType.Silent;
+        }
+
+        private static ActivationType ParseActivationType(string value)
+        {
+            return Enum.TryParse<ActivationType>(value, true, out var activationType)
+                ? activationType
+                : ActivationType.Automatic;
+        }
+
+        private static PlaceVisibility ParseVisibility(string value)
+        {
+            return Enum.TryParse<PlaceVisibility>(value, true, out var visibility)
+                ? visibility
+                : PlaceVisibility.Private;
         }
 
         private string RequireUserId()
