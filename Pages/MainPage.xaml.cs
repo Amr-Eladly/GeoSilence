@@ -44,7 +44,12 @@ namespace GeoSilence.Pages
 
         private void OnMapClicked(object sender, MapClickedEventArgs e)
         {
-            // Map click does nothing — use FAB to add places
+            // Allow adding places anywhere on the map by tapping
+            var location = new Microsoft.Maui.Devices.Sensors.Location(
+                e.Location.Latitude,
+                e.Location.Longitude);
+
+            ShowPlaceForm(location);
         }
 
         private async void OnSearchSubmitted(object sender, EventArgs e)
@@ -257,47 +262,52 @@ namespace GeoSilence.Pages
 
             PlaceFormTitle.Text = place == null ? "Add Place" : "Edit Place";
             PlaceNameEntry.Text = suggestedName ?? string.Empty;
-            PlaceRadiusEntry.Text = place?.Radius.ToString("F0", CultureInfo.InvariantCulture) ?? "50";
+
+            var radius = place?.Radius ?? 50;
+            PlaceRadiusSlider.Value = radius;
+            RadiusValueLabel.Text = $"{(int)radius} m";
+
             SetSelectedMode(place?.Mode ?? ModeType.Silent);
             SetSelectedActivationType(place?.ActivationType ?? ActivationType.Automatic);
             SetSelectedVisibility(place?.Visibility ?? PlaceVisibility.Private);
-            PlaceModeDropdown.IsVisible = false;
             PlacesBottomSheet.HeightRequest = BottomSheetCollapsedHeight;
             PlacesBottomSheet.InputTransparent = true;
             PlaceFormOverlay.IsVisible = true;
         }
 
-        private async void OnPlaceFormInputFocused(object sender, FocusEventArgs e)
-        {
-            if (_placeFormCard != null)
-                await _placeFormCard.TranslateTo(0, KeyboardFormOffset, 120, Easing.CubicOut);
-        }
 
-        private async void OnPlaceFormInputUnfocused(object sender, FocusEventArgs e)
+        private void OnModeButtonTapped(object sender, TappedEventArgs e)
         {
-            if (_placeFormCard != null)
-                await _placeFormCard.TranslateTo(0, 0, 120, Easing.CubicOut);
-        }
-
-        private void OnModeDropdownClicked(object sender, EventArgs e)
-        {
-            PlaceModeDropdown.IsVisible = !PlaceModeDropdown.IsVisible;
-        }
-
-        private void OnModeOptionClicked(object sender, EventArgs e)
-        {
-            if (sender is not Button button ||
-                !Enum.TryParse<ModeType>(button.Text, out var mode))
+            if (sender is not Border border ||
+                e.Parameter is not string modeStr ||
+                !Enum.TryParse<ModeType>(modeStr, out var mode))
                 return;
 
             SetSelectedMode(mode);
-            PlaceModeDropdown.IsVisible = false;
         }
 
         private void SetSelectedMode(ModeType mode)
         {
             _selectedMode = mode;
-            PlaceModeButton.Text = mode.ToString();
+
+            // Update border highlighting
+            var silentSelected = mode == ModeType.Silent;
+            var vibrateSelected = mode == ModeType.Vibrate;
+            var normalSelected = mode == ModeType.Normal;
+
+            ModeSilentBorder.StrokeThickness = silentSelected ? 2 : 1;
+            ModeVibrateBorder.StrokeThickness = vibrateSelected ? 2 : 1;
+            ModeNormalBorder.StrokeThickness = normalSelected ? 2 : 1;
+
+            ModeSilentBorder.BackgroundColor = silentSelected ? Color.FromArgb("#FEE2E2") : Color.FromArgb("#FFFFFF");
+            ModeVibrateBorder.BackgroundColor = vibrateSelected ? Color.FromArgb("#FFFBEB") : Color.FromArgb("#FFFFFF");
+            ModeNormalBorder.BackgroundColor = normalSelected ? Color.FromArgb("#F0FDF4") : Color.FromArgb("#FFFFFF");
+        }
+
+        private void OnRadiusSliderValueChanged(object sender, ValueChangedEventArgs e)
+        {
+            var radiusValue = (int)e.NewValue;
+            RadiusValueLabel.Text = $"{radiusValue} m";
         }
 
         private void SetSelectedActivationType(ActivationType activationType)
@@ -375,9 +385,7 @@ namespace GeoSilence.Pages
         {
             PlaceFormOverlay.IsVisible = false;
             _editingPlace = null;
-            PlaceModeDropdown.IsVisible = false;
             PlaceNameEntry.Unfocus();
-            PlaceRadiusEntry.Unfocus();
             if (_placeFormCard != null)
                 _placeFormCard.TranslationY = 0;
             PlacesBottomSheet.InputTransparent = false;
@@ -396,16 +404,7 @@ namespace GeoSilence.Pages
                 return false;
             }
 
-            if (!double.TryParse(
-                    PlaceRadiusEntry.Text,
-                    NumberStyles.AllowDecimalPoint,
-                    CultureInfo.InvariantCulture,
-                    out var radius) ||
-                radius <= 0)
-            {
-                await DisplayAlert("Place", "Enter a valid radius in meters.", "OK");
-                return false;
-            }
+            var radius = PlaceRadiusSlider.Value;
 
             if (_editingPlace == null)
             {

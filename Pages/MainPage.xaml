@@ -277,8 +277,7 @@
                 HasShadow="True"
                 VerticalOptions="End">
 
-                <ScrollView>
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="12">
                     <Label
                         x:Name="PlaceFormTitle"
                         Text="Add Place"
@@ -288,128 +287,133 @@
                     <Entry
                         x:Name="PlaceNameEntry"
                         Placeholder="Place name"
-                        Focused="OnPlaceFormInputFocused"
-                        Unfocused="OnPlaceFormInputUnfocused"
                         BackgroundColor="White"
                         TextColor="Black"
                         HeightRequest="40"
-                        FontSize="13"/>
+                        FontSize="13"
+                        BorderColor="#D1D5DB"
+                        BorderWidth="1"/>
 
-                    <VerticalStackLayout Spacing="0">
-                        <Button
-                            x:Name="PlaceModeButton"
-                            Text="Silent"
-                            Clicked="OnModeDropdownClicked"
-                            BackgroundColor="White"
-                            BorderColor="#DDDDDD"
-                            BorderWidth="1"
-                            TextColor="Black"
-                            HorizontalOptions="Fill"
-                            HeightRequest="38"
-                            FontSize="13"/>
-
-                        <HorizontalStackLayout
-                            Spacing="10"
-                            Padding="4,8,4,0">
-                            <HorizontalStackLayout Spacing="6">
-                                <BoxView
-                                    WidthRequest="10"
-                                    HeightRequest="10"
-                                    BackgroundColor="#DC2626"
-                                    CornerRadius="5"/>
-                                <Label Text="Silent" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
-                            </HorizontalStackLayout>
-                            <HorizontalStackLayout Spacing="6">
-                                <BoxView
-                                    WidthRequest="10"
-                                    HeightRequest="10"
-                                    BackgroundColor="#F59E0B"
-                                    CornerRadius="5"/>
-                                <Label Text="Vibrate" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
-                            </HorizontalStackLayout>
-                            <HorizontalStackLayout Spacing="6">
-                                <BoxView
-                                    WidthRequest="10"
-                                    HeightRequest="10"
-                                    BackgroundColor="#16A34A"
-                                    CornerRadius="5"/>
-                                <Label Text="Normal" FontSize="12" TextColor="#6B7280" VerticalTextAlignment="Center"/>
-                            </HorizontalStackLayout>
-                        </HorizontalStackLayout>
-
-                        <VerticalStackLayout
-                            x:Name="PlaceModeDropdown"
-                            IsVisible="False"
-                            BackgroundColor="White">
-                            <Button
-                                Text="Silent"
-                                Clicked="OnModeOptionClicked"
-                                BackgroundColor="#F7F7F7"
-                                TextColor="Black"
-                                HeightRequest="34"
-                                FontSize="12"/>
-                            <Button
-                                Text="Vibrate"
-                                Clicked="OnModeOptionClicked"
-                                BackgroundColor="#F7F7F7"
-                                TextColor="Black"
-                                HeightRequest="34"
-                                FontSize="12"/>
-                            <Button
-                                Text="Normal"
-                                Clicked="OnModeOptionClicked"
-                                BackgroundColor="#F7F7F7"
-                                TextColor="Black"
-                                HeightRequest="34"
-                                FontSize="12"/>
-                        </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Text="Mode"
+                            FontAttributes="Bold"
+                            FontSize="12"
+                            TextColor="#111827"/>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <Border
+                                x:Name="ModeSilentBorder"
+                                Stroke="#DC2626"
+                                StrokeThickness="2"
+                                StrokeShape="RoundRectangle 12"
+                                BackgroundColor="#FEE2E2"
+                                Padding="10,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Silent"/>
+                                </Border.GestureRecognizers>
+                                <Label
+                                    Text="🔇 Silent"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    FontSize="11"
+                                    TextColor="#DC2626"
+                                    FontAttributes="Bold"/>
+                            </Border>
+                            <Border
+                                x:Name="ModeVibrateBorder"
+                                Grid.Column="1"
+                                Stroke="#F59E0B"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 12"
+                                BackgroundColor="#FFFBEB"
+                                Padding="10,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Vibrate"/>
+                                </Border.GestureRecognizers>
+                                <Label
+                                    Text="📳 Vibrate"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    FontSize="11"
+                                    TextColor="#F59E0B"
+                                    FontAttributes="Bold"/>
+                            </Border>
+                            <Border
+                                x:Name="ModeNormalBorder"
+                                Grid.Column="2"
+                                Stroke="#16A34A"
+                                StrokeThickness="1"
+                                StrokeShape="RoundRectangle 12"
+                                BackgroundColor="#F0FDF4"
+                                Padding="10,8">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Normal"/>
+                                </Border.GestureRecognizers>
+                                <Label
+                                    Text="🔊 Ring"
+                                    HorizontalOptions="Center"
+                                    VerticalOptions="Center"
+                                    FontSize="11"
+                                    TextColor="#16A34A"
+                                    FontAttributes="Bold"/>
+                            </Border>
+                        </Grid>
                     </VerticalStackLayout>
 
-                    <Entry
-                        x:Name="PlaceRadiusEntry"
-                        Placeholder="Radius in meters"
-                        Keyboard="Numeric"
-                        Focused="OnPlaceFormInputFocused"
-                        Unfocused="OnPlaceFormInputUnfocused"
-                        BackgroundColor="White"
-                        TextColor="Black"
-                        HeightRequest="40"
-                        FontSize="13"/>
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                Text="Radius"
+                                FontAttributes="Bold"
+                                FontSize="12"
+                                TextColor="#111827"/>
+                            <Label
+                                Grid.Column="1"
+                                x:Name="RadiusValueLabel"
+                                Text="50 m"
+                                FontSize="12"
+                                TextColor="#6B7280"/>
+                        </Grid>
+                        <Slider
+                            x:Name="PlaceRadiusSlider"
+                            Minimum="10"
+                            Maximum="200"
+                            Value="50"
+                            ValueChanged="OnRadiusSliderValueChanged"
+                            MinimumTrackColor="#2563EB"
+                            MaximumTrackColor="#E5E7EB"/>
+                    </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="8">
                         <Label
                             Text="Activation Type"
                             FontAttributes="Bold"
-                            FontSize="13"
+                            FontSize="12"
                             TextColor="#111827"/>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Border
                                 Stroke="#D1D5DB"
-                                StrokeShape="RoundRectangle 14"
-                                Padding="12,10">
-                                <HorizontalStackLayout Spacing="10">
-                                    <RadioButton
-                                        x:Name="ActivationAutomaticRadio"
-                                        GroupName="ActivationType"
-                                        Content="Automatic"
-                                        IsChecked="True"
-                                        FontSize="12"
-                                        CheckedChanged="OnActivationTypeCheckedChanged"/>
-                                </HorizontalStackLayout>
+                                StrokeShape="RoundRectangle 12"
+                                Padding="10,8">
+                                <RadioButton
+                                    x:Name="ActivationAutomaticRadio"
+                                    GroupName="ActivationType"
+                                    Content="Automatic"
+                                    IsChecked="True"
+                                    FontSize="12"
+                                    CheckedChanged="OnActivationTypeCheckedChanged"/>
                             </Border>
                             <Border
                                 Grid.Column="1"
                                 Stroke="#D1D5DB"
-                                StrokeShape="RoundRectangle 14"
-                                Padding="12,10">
-                                <HorizontalStackLayout Spacing="10">
-                                    <RadioButton
-                                        x:Name="ActivationConfirmRadio"
-                                        GroupName="ActivationType"
-                                        Content="Confirm First"
-                                        FontSize="12"
-                                        CheckedChanged="OnActivationTypeCheckedChanged"/>
-                                </HorizontalStackLayout>
+                                StrokeShape="RoundRectangle 12"
+                                Padding="10,8">
+                                <RadioButton
+                                    x:Name="ActivationConfirmRadio"
+                                    GroupName="ActivationType"
+                                    Content="Confirm First"
+                                    FontSize="12"
+                                    CheckedChanged="OnActivationTypeCheckedChanged"/>
                             </Border>
                         </Grid>
                     </VerticalStackLayout>
@@ -418,36 +422,32 @@
                         <Label
                             Text="Visibility"
                             FontAttributes="Bold"
-                            FontSize="13"
+                            FontSize="12"
                             TextColor="#111827"/>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Border
                                 Stroke="#D1D5DB"
-                                StrokeShape="RoundRectangle 14"
-                                Padding="12,10">
-                                <HorizontalStackLayout Spacing="10">
-                                    <RadioButton
-                                        x:Name="VisibilityPrivateRadio"
-                                        GroupName="Visibility"
-                                        Content="Private"
-                                        IsChecked="True"
-                                        FontSize="12"
-                                        CheckedChanged="OnVisibilityCheckedChanged"/>
-                                </HorizontalStackLayout>
+                                StrokeShape="RoundRectangle 12"
+                                Padding="10,8">
+                                <RadioButton
+                                    x:Name="VisibilityPrivateRadio"
+                                    GroupName="Visibility"
+                                    Content="Private"
+                                    IsChecked="True"
+                                    FontSize="12"
+                                    CheckedChanged="OnVisibilityCheckedChanged"/>
                             </Border>
                             <Border
                                 Grid.Column="1"
                                 Stroke="#D1D5DB"
-                                StrokeShape="RoundRectangle 14"
-                                Padding="12,10">
-                                <HorizontalStackLayout Spacing="10">
-                                    <RadioButton
-                                        x:Name="VisibilityPublicRadio"
-                                        GroupName="Visibility"
-                                        Content="Public"
-                                        FontSize="12"
-                                        CheckedChanged="OnVisibilityCheckedChanged"/>
-                                </HorizontalStackLayout>
+                                StrokeShape="RoundRectangle 12"
+                                Padding="10,8">
+                                <RadioButton
+                                    x:Name="VisibilityPublicRadio"
+                                    GroupName="Visibility"
+                                    Content="Public"
+                                    FontSize="12"
+                                    CheckedChanged="OnVisibilityCheckedChanged"/>
                             </Border>
                         </Grid>
                     </VerticalStackLayout>
@@ -471,7 +471,6 @@
                             FontSize="13"/>
                     </Grid>
                 </VerticalStackLayout>
-                </ScrollView>
             </Frame>
         </Grid>
 
