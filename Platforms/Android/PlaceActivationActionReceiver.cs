@@ -29,7 +29,14 @@ namespace GeoSilence
             if (intent.Action == PlaceActivationNotificationService.ActionActivate)
             {
                 GeoLog.Write("NOTIFY", $"Activation confirmed for place {placeId}");
-                new ModeService().ApplyZoneMode(mode);
+                try
+                {
+                    new ModeService().ApplyZoneMode(mode);
+                }
+                catch (Exception ex)
+                {
+                    GeoLog.Error("NOTIFY-APPLY", ex);
+                }
                 return;
             }
 

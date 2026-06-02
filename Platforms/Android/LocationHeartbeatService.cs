@@ -142,12 +142,14 @@ namespace GeoSilence
 
             var channel = new NotificationChannel(
                 ChannelId,
-                "GeoSilence location",
-                NotificationImportance.Min)
+                "GeoSilence background",
+                NotificationImportance.None)
             {
-                Description = "Keeps location fresh so zone changes work in the background"
+                Description = "Silent background location updates for geofencing"
             };
             channel.SetShowBadge(false);
+            channel.EnableVibration(false);
+            channel.SetSound(null, null);
             manager.CreateNotificationChannel(channel);
         }
 
@@ -155,11 +157,13 @@ namespace GeoSilence
         {
             var builder = new NotificationCompat.Builder(this, ChannelId)
                 .SetContentTitle("GeoSilence")
-                .SetContentText("Watching for sound zones")
+                .SetContentText("Background location active")
                 .SetSmallIcon(Resource.Mipmap.appicon)
                 .SetOngoing(true)
+                .SetLocalOnly(true)
                 .SetPriority(NotificationCompat.PriorityMin)
-                .SetCategory(NotificationCompat.CategoryService);
+                .SetCategory(NotificationCompat.CategoryService)
+                .SetVibrate(new long[] { });
 
             return builder.Build()!;
         }

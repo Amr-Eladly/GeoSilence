@@ -536,18 +536,19 @@ namespace GeoSilence.Pages
 
         private async void OnAddPlaceFabClicked(object sender, EventArgs e)
         {
-            // FAB is now just a shortcut to place at current location or center
-            var location = MainMap.VisibleRegion?.Center;
-
-            if (location == null)
+            // If there's a search result pending, add at that location
+            if (_pendingPlaceLocation != null)
             {
-                var loc = await _vm.GetCurrentLocationForMap();
-                if (loc == null)
-                    return;
-
-                location = new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude);
+                ShowPlaceForm(_pendingPlaceLocation, _pendingPlaceName);
+                return;
             }
 
+            // Otherwise add at current location
+            var loc = await _vm.GetCurrentLocationForMap();
+            if (loc == null)
+                return;
+
+            var location = new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude);
             ShowPlaceForm(location);
         }
 
