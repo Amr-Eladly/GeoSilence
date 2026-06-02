@@ -49,14 +49,41 @@ namespace GeoSilence.Pages
 
         private void OnMapLongPressed(object? sender, TouchEventArgs e)
         {
-            if (e.Touches.Length == 0)
+            if (e.Touches.Length == 0 || MainMap.VisibleRegion == null)
                 return;
 
             var touchPoint = e.Touches[0];
-            var location = MainMap.GetLocationFromScreenCoordinates(touchPoint.X, touchPoint.Y);
+            var location = GetLocationFromTouchPoint(touchPoint.X, touchPoint.Y);
 
             if (location != null)
                 ShowPlaceForm(location);
+        }
+
+        private Microsoft.Maui.Devices.Sensors.Location? GetLocationFromTouchPoint(double screenX, double screenY)
+        {
+            var region = MainMap.VisibleRegion;
+            if (region == null)
+                return null;
+
+            var mapWidth = MainMap.Width;
+            var mapHeight = MainMap.Height;
+
+            if (mapWidth <= 0 || mapHeight <= 0)
+                return null;
+
+            // Calculate relative position within the map
+            var xRatio = screenX / mapWidth;
+            var yRatio = screenY / mapHeight;
+
+            // Calculate lat/lng based on visible region
+            // Note: latitude increases upward, so y increases downward on screen
+            var latRange = region.LatitudeDegrees;
+            var lngRange = region.LongitudeDegrees;
+
+            var lat = region.Center.Latitude + (latRange / 2) - (yRatio * latRange);
+            var lng = region.Center.Longitude - (lngRange / 2) + (xRatio * lngRange);
+
+            return new Microsoft.Maui.Devices.Sensors.Location(lat, lng);
         }
 
         private async void OnSearchSubmitted(object sender, EventArgs e)
