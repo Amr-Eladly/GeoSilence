@@ -44,7 +44,19 @@ namespace GeoSilence.Pages
 
         private void OnMapClicked(object sender, MapClickedEventArgs e)
         {
-            ShowPlaceForm(e.Location);
+            // Single tap does nothing (long-press is used to place pins)
+        }
+
+        private void OnMapLongPressed(object? sender, TouchEventArgs e)
+        {
+            if (e.Touches.Length == 0)
+                return;
+
+            var touchPoint = e.Touches[0];
+            var location = MainMap.GetLocationFromScreenCoordinates(touchPoint.X, touchPoint.Y);
+
+            if (location != null)
+                ShowPlaceForm(location);
         }
 
         private async void OnSearchSubmitted(object sender, EventArgs e)
@@ -126,13 +138,6 @@ namespace GeoSilence.Pages
             }
         }
 
-        private void OnAddSearchResultClicked(object sender, EventArgs e)
-        {
-            if (_pendingPlaceLocation == null)
-                return;
-
-            ShowPlaceForm(_pendingPlaceLocation, _pendingPlaceName);
-        }
 
         private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
         {
@@ -198,7 +203,7 @@ namespace GeoSilence.Pages
 
         private void UpdateSearchUiState()
         {
-            AddSearchResultButton.IsVisible = _pendingPlaceLocation != null;
+            // Search result pin is shown on map; user can click it to add via the form
         }
 
         private void ClearSearchState()
@@ -543,18 +548,19 @@ namespace GeoSilence.Pages
 
         private async void OnAddPlaceFabClicked(object sender, EventArgs e)
         {
-            if (MainMap.VisibleRegion?.Center != null)
+            // FAB is now just a shortcut to place at current location or center
+            var location = MainMap.VisibleRegion?.Center;
+
+            if (location == null)
             {
-                ShowPlaceForm(MainMap.VisibleRegion.Center);
-                return;
+                var loc = await _vm.GetCurrentLocationForMap();
+                if (loc == null)
+                    return;
+
+                location = new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude);
             }
 
-            var loc = await _vm.GetCurrentLocationForMap();
-            if (loc == null)
-                return;
-
-            ShowPlaceForm(
-                new Microsoft.Maui.Devices.Sensors.Location(loc.Latitude, loc.Longitude));
+            ShowPlaceForm(location);
         }
 
         private async void OnAccountAvatarTapped(object sender, TappedEventArgs e)
@@ -616,6 +622,9 @@ namespace GeoSilence.Pages
                 UpdateSearchUiState();
                 _accountProfileService.ProfileChanged += OnProfileChanged;
                 await LoadAvatarAsync();
+
+                // Load distances immediately before starting polling loop
+                await _vm.LoadAsync();
 
                 _ = Task.Run(async () =>
                 {

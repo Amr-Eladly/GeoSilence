@@ -24,10 +24,12 @@ namespace GeoSilence
         {
             EnsureChannel(context);
 
+            // POST_NOTIFICATIONS is required on Android 13+. If missing, log and silently
+            // fail (the notification will not show, but the app won't crash).
             if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu &&
                 ContextCompat.CheckSelfPermission(context, Manifest.Permission.PostNotifications) != Permission.Granted)
             {
-                GeoLog.Write("NOTIFY", $"POST_NOTIFICATIONS missing for place {place.Id}");
+                GeoLog.Write("NOTIFY", $"POST_NOTIFICATIONS missing; skipping activation prompt for place {place.Id}");
                 return;
             }
 

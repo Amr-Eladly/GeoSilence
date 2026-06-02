@@ -4,6 +4,8 @@ using Android.OS;
 using Android.Content;
 using Android.Provider;
 using Android.Views;
+using AndroidX.Core.App;
+using AndroidX.Core.Content;
 
 namespace GeoSilence
 {
@@ -15,6 +17,16 @@ namespace GeoSilence
             base.OnCreate(savedInstanceState);
 
             Window?.SetSoftInputMode(SoftInput.AdjustNothing);
+
+            // Request POST_NOTIFICATIONS permission on Android 13+ to show activation prompts
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu &&
+                ContextCompat.CheckSelfPermission(this, Android.Manifest.Permission.PostNotifications) != Permission.Granted)
+            {
+                ActivityCompat.RequestPermissions(
+                    this,
+                    new[] { Android.Manifest.Permission.PostNotifications },
+                    1001);
+            }
 
             var notificationManager =
                 (NotificationManager)GetSystemService(NotificationService);

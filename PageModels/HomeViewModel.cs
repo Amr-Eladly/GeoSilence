@@ -91,7 +91,8 @@ namespace GeoSilence.PageModels
             {
                 try
                 {
-                    await LoadAsync();
+                    // Run distance calculation off the main thread to avoid UI freeze
+                    await Task.Run(() => LoadAsync(), _cts.Token);
                 }
                 catch (Exception ex)
                 {
@@ -236,6 +237,7 @@ namespace GeoSilence.PageModels
         public async Task LoadAsync()
         {
             var location = await _locationService.GetCurrentLocationAsync();
+
 
             if (location == null)
                 return;

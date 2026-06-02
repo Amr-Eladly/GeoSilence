@@ -105,11 +105,17 @@ namespace GeoSilence.Services
 
                 case ModeType.Vibrate:
 
+                    audioManager.RingerMode = RingerMode.Vibrate;
+
                     SetInterruptionFilter(
                         notificationManager,
                         InterruptionFilter.All);
 
-                    audioManager.RingerMode = RingerMode.Vibrate;
+                    // Unmute notification stream to ensure vibration is audible
+                    audioManager.AdjustStreamVolume(
+                        Android.Media.Stream.Notification,
+                        Adjust.Unmute,
+                        VolumeNotificationFlags.PlaySound);
 
                     break;
 
