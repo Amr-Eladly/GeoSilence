@@ -18,15 +18,16 @@
 
     <Grid>
 
-        <!-- MAP (background) -->
-        <maps:Map
-        x:Name="MainMap"
-        IsShowingUser="True"
-        MapClicked="OnMapClicked">
-            <maps:Map.GestureRecognizers>
+        <!-- MAP (background) with long-press support -->
+        <Grid x:Name="MapContainer" HorizontalOptions="Fill" VerticalOptions="Fill">
+            <maps:Map
+                x:Name="MainMap"
+                IsShowingUser="True"
+                MapClicked="OnMapClicked"/>
+            <Grid.GestureRecognizers>
                 <LongPressGestureRecognizer Duration="500" Pressed="OnMapLongPressed"/>
-            </maps:Map.GestureRecognizers>
-        </maps:Map>
+            </Grid.GestureRecognizers>
+        </Grid>
 
         <Grid
             x:Name="SearchPanel"
@@ -59,8 +60,7 @@
                         FontSize="14"
                         HorizontalOptions="Fill"
                         Margin="4,0,0,0"
-                        HeightRequest="56"
-                        CursorColor="#2563EB"/>
+                        HeightRequest="56"/>
                     <ActivityIndicator
                         Grid.Column="1"
                         x:Name="SearchLoadingIndicator"
