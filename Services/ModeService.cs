@@ -110,20 +110,16 @@ namespace GeoSilence.Services
                         notificationManager,
                         InterruptionFilter.All);
 
-                    // Set ringer mode to vibrate
+                    // Set ringer mode to vibrate — ring stream MUST stay muted
                     audioManager.RingerMode = RingerMode.Vibrate;
 
-                    // Ensure ring stream volume is at max for vibration
-                    int maxVolume = audioManager.GetStreamMaxVolume(Android.Media.Stream.Ring);
-                    audioManager.SetStreamVolume(Android.Media.Stream.Ring, maxVolume, VolumeNotificationFlags.PlaySound);
-
-                    // Unmute ring stream
+                    // Mute ring stream (required for vibrate mode to work, not ring)
                     audioManager.AdjustStreamVolume(
                         Android.Media.Stream.Ring,
-                        Adjust.Unmute,
+                        Adjust.Mute,
                         VolumeNotificationFlags.PlaySound);
 
-                    // Unmute notification stream
+                    // Unmute notification stream for notification vibrations
                     audioManager.AdjustStreamVolume(
                         Android.Media.Stream.Notification,
                         Adjust.Unmute,
