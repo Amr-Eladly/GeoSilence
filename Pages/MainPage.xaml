@@ -316,7 +316,7 @@
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Silent"/>
                                 </Border.GestureRecognizers>
                                 <Label
-                                    Text="🔇 Silent"
+                                    Text="Silent"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
@@ -335,7 +335,7 @@
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Vibrate"/>
                                 </Border.GestureRecognizers>
                                 <Label
-                                    Text="📳 Vibrate"
+                                    Text="Vibrate"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
@@ -354,7 +354,7 @@
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Normal"/>
                                 </Border.GestureRecognizers>
                                 <Label
-                                    Text="🔊 Ring"
+                                    Text="Ring"
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
