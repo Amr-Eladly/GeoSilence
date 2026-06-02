@@ -284,15 +284,19 @@
                         FontSize="17"
                         FontAttributes="Bold"/>
 
-                    <Entry
-                        x:Name="PlaceNameEntry"
-                        Placeholder="Place name"
-                        BackgroundColor="White"
-                        TextColor="Black"
-                        HeightRequest="40"
-                        FontSize="13"
-                        BorderColor="#D1D5DB"
-                        BorderWidth="1"/>
+                    <Border
+                        Stroke="#D1D5DB"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 6"
+                        Padding="10,8">
+                        <Entry
+                            x:Name="PlaceNameEntry"
+                            Placeholder="Place name"
+                            BackgroundColor="Transparent"
+                            TextColor="Black"
+                            PlaceholderColor="#9CA3AF"
+                            FontSize="13"/>
+                    </Border>
 
                     <VerticalStackLayout Spacing="6">
                         <Label

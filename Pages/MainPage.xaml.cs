@@ -44,7 +44,6 @@ namespace GeoSilence.Pages
 
         private void OnMapClicked(object sender, MapClickedEventArgs e)
         {
-            // Allow adding places anywhere on the map by tapping
             var location = new Microsoft.Maui.Devices.Sensors.Location(
                 e.Location.Latitude,
                 e.Location.Longitude);
