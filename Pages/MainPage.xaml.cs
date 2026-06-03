@@ -275,12 +275,15 @@ namespace GeoSilence.Pages
         }
 
 
-        private void OnModeButtonTapped(object sender, TappedEventArgs e)
+        private void OnModeButtonTapped(object sender, EventArgs e)
         {
-            if (sender is not Border border ||
-                e.Parameter is not string modeStr ||
-                !Enum.TryParse<ModeType>(modeStr, out var mode))
-                return;
+            var mode = sender switch
+            {
+                Button { Text: "Silent" } => ModeType.Silent,
+                Button { Text: "Vibrate" } => ModeType.Vibrate,
+                Button { Text: "Ring" } => ModeType.Normal,
+                _ => _selectedMode
+            };
 
             SetSelectedMode(mode);
         }
@@ -289,42 +292,30 @@ namespace GeoSilence.Pages
         {
             _selectedMode = mode;
 
-            // Reset all to white background with gray stroke and colored text
-            ModeSilentBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
-            ModeSilentBorder.Stroke = Color.FromArgb("#D1D5DB");
-            ModeSilentBorder.StrokeThickness = 1;
-            ModeSilentLabel.TextColor = Color.FromArgb("#DC2626");
+            // Reset all to light gray background with mode-colored text
+            ModeSilentButton.BackgroundColor = Color.FromArgb("#F9FAFB");
+            ModeSilentButton.TextColor = Color.FromArgb("#DC2626");
 
-            ModeVibrateBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
-            ModeVibrateBorder.Stroke = Color.FromArgb("#D1D5DB");
-            ModeVibrateBorder.StrokeThickness = 1;
-            ModeVibrateLabel.TextColor = Color.FromArgb("#F59E0B");
+            ModeVibrateButton.BackgroundColor = Color.FromArgb("#F9FAFB");
+            ModeVibrateButton.TextColor = Color.FromArgb("#F59E0B");
 
-            ModeNormalBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
-            ModeNormalBorder.Stroke = Color.FromArgb("#D1D5DB");
-            ModeNormalBorder.StrokeThickness = 1;
-            ModeNormalLabel.TextColor = Color.FromArgb("#16A34A");
+            ModeNormalButton.BackgroundColor = Color.FromArgb("#F9FAFB");
+            ModeNormalButton.TextColor = Color.FromArgb("#16A34A");
 
-            // Highlight selected mode with its color background, colored stroke, and white text
+            // Highlight selected mode with its color background and white text
             switch (mode)
             {
                 case ModeType.Silent:
-                    ModeSilentBorder.BackgroundColor = Color.FromArgb("#DC2626");
-                    ModeSilentBorder.Stroke = Color.FromArgb("#DC2626");
-                    ModeSilentBorder.StrokeThickness = 2;
-                    ModeSilentLabel.TextColor = Colors.White;
+                    ModeSilentButton.BackgroundColor = Color.FromArgb("#DC2626");
+                    ModeSilentButton.TextColor = Colors.White;
                     break;
                 case ModeType.Vibrate:
-                    ModeVibrateBorder.BackgroundColor = Color.FromArgb("#F59E0B");
-                    ModeVibrateBorder.Stroke = Color.FromArgb("#F59E0B");
-                    ModeVibrateBorder.StrokeThickness = 2;
-                    ModeVibrateLabel.TextColor = Colors.White;
+                    ModeVibrateButton.BackgroundColor = Color.FromArgb("#F59E0B");
+                    ModeVibrateButton.TextColor = Colors.White;
                     break;
                 case ModeType.Normal:
-                    ModeNormalBorder.BackgroundColor = Color.FromArgb("#16A34A");
-                    ModeNormalBorder.Stroke = Color.FromArgb("#16A34A");
-                    ModeNormalBorder.StrokeThickness = 2;
-                    ModeNormalLabel.TextColor = Colors.White;
+                    ModeNormalButton.BackgroundColor = Color.FromArgb("#16A34A");
+                    ModeNormalButton.TextColor = Colors.White;
                     break;
             }
         }

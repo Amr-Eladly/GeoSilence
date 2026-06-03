@@ -36,7 +36,7 @@
             <Border
                 x:Name="SearchBarBorder"
                 Grid.ColumnSpan="2"
-                BackgroundColor="#FFFFFF"
+                BackgroundColor="#F9FAFB"
                 Stroke="#D1D5DB"
                 StrokeThickness="1"
                 StrokeShape="RoundRectangle 18"
@@ -48,7 +48,7 @@
                         Placeholder="Search places..."
                         SearchButtonPressed="OnSearchSubmitted"
                         TextChanged="OnSearchTextChanged"
-                        BackgroundColor="Transparent"
+                        BackgroundColor="#F9FAFB"
                         TextColor="#111827"
                         PlaceholderColor="#6B7280"
                         CancelButtonColor="#6B7280"
@@ -277,27 +277,22 @@
                 HasShadow="True"
                 VerticalOptions="End">
 
-                <VerticalStackLayout Spacing="12" BackgroundColor="#FFFFFF">
+                <VerticalStackLayout Spacing="12">
                     <Label
                         x:Name="PlaceFormTitle"
                         Text="Add Place"
                         FontSize="17"
-                        FontAttributes="Bold"/>
+                        FontAttributes="Bold"
+                        TextColor="#111827"/>
 
-                    <Border
-                        Stroke="#D1D5DB"
-                        StrokeThickness="1"
-                        StrokeShape="RoundRectangle 6"
-                        Padding="10,8"
-                        BackgroundColor="#FFFFFF">
-                        <Entry
-                            x:Name="PlaceNameEntry"
-                            Placeholder="Place name"
-                            BackgroundColor="#FFFFFF"
-                            TextColor="#111827"
-                            PlaceholderColor="#9CA3AF"
-                            FontSize="13"/>
-                    </Border>
+                    <Entry
+                        x:Name="PlaceNameEntry"
+                        Placeholder="Place name"
+                        BackgroundColor="#F9FAFB"
+                        TextColor="#111827"
+                        PlaceholderColor="#9CA3AF"
+                        FontSize="13"
+                        Padding="10,8"/>
 
                     <VerticalStackLayout Spacing="6">
                         <Label
@@ -306,65 +301,38 @@
                             FontSize="12"
                             TextColor="#111827"/>
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                            <Border
-                                x:Name="ModeSilentBorder"
-                                Stroke="#D1D5DB"
-                                StrokeThickness="1"
-                                StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#FFFFFF"
-                                Padding="10,8">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Silent"/>
-                                </Border.GestureRecognizers>
-                                <Label
-                                    x:Name="ModeSilentLabel"
-                                    Text="Silent"
-                                    HorizontalOptions="Center"
-                                    VerticalOptions="Center"
-                                    FontSize="11"
-                                    TextColor="#DC2626"
-                                    FontAttributes="Bold"/>
-                            </Border>
-                            <Border
-                                x:Name="ModeVibrateBorder"
+                            <Button
+                                x:Name="ModeSilentButton"
+                                Text="Silent"
+                                Clicked="OnModeButtonTapped"
+                                BackgroundColor="#F9FAFB"
+                                TextColor="#DC2626"
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                HeightRequest="40"
+                                CornerRadius="8"/>
+                            <Button
+                                x:Name="ModeVibrateButton"
                                 Grid.Column="1"
-                                Stroke="#D1D5DB"
-                                StrokeThickness="1"
-                                StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#FFFFFF"
-                                Padding="10,8">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Vibrate"/>
-                                </Border.GestureRecognizers>
-                                <Label
-                                    x:Name="ModeVibrateLabel"
-                                    Text="Vibrate"
-                                    HorizontalOptions="Center"
-                                    VerticalOptions="Center"
-                                    FontSize="11"
-                                    TextColor="#F59E0B"
-                                    FontAttributes="Bold"/>
-                            </Border>
-                            <Border
-                                x:Name="ModeNormalBorder"
+                                Text="Vibrate"
+                                Clicked="OnModeButtonTapped"
+                                BackgroundColor="#F9FAFB"
+                                TextColor="#F59E0B"
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                HeightRequest="40"
+                                CornerRadius="8"/>
+                            <Button
+                                x:Name="ModeNormalButton"
                                 Grid.Column="2"
-                                Stroke="#D1D5DB"
-                                StrokeThickness="1"
-                                StrokeShape="RoundRectangle 12"
-                                BackgroundColor="#FFFFFF"
-                                Padding="10,8">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Normal"/>
-                                </Border.GestureRecognizers>
-                                <Label
-                                    x:Name="ModeNormalLabel"
-                                    Text="Ring"
-                                    HorizontalOptions="Center"
-                                    VerticalOptions="Center"
-                                    FontSize="11"
-                                    TextColor="#16A34A"
-                                    FontAttributes="Bold"/>
-                            </Border>
+                                Text="Ring"
+                                Clicked="OnModeButtonTapped"
+                                BackgroundColor="#F9FAFB"
+                                TextColor="#16A34A"
+                                FontSize="12"
+                                FontAttributes="Bold"
+                                HeightRequest="40"
+                                CornerRadius="8"/>
                         </Grid>
                     </VerticalStackLayout>
 
