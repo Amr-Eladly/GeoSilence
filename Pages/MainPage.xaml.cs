@@ -289,21 +289,21 @@ namespace GeoSilence.Pages
         {
             _selectedMode = mode;
 
-            // Reset all to white background with gray stroke and dark text
-            ModeSilentBorder.BackgroundColor = Colors.White;
+            // Reset all to white background with gray stroke and colored text
+            ModeSilentBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
             ModeSilentBorder.Stroke = Color.FromArgb("#D1D5DB");
             ModeSilentBorder.StrokeThickness = 1;
-            ModeSilentLabel.TextColor = Color.FromArgb("#111827");
+            ModeSilentLabel.TextColor = Color.FromArgb("#DC2626");
 
-            ModeVibrateBorder.BackgroundColor = Colors.White;
+            ModeVibrateBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
             ModeVibrateBorder.Stroke = Color.FromArgb("#D1D5DB");
             ModeVibrateBorder.StrokeThickness = 1;
-            ModeVibrateLabel.TextColor = Color.FromArgb("#111827");
+            ModeVibrateLabel.TextColor = Color.FromArgb("#F59E0B");
 
-            ModeNormalBorder.BackgroundColor = Colors.White;
+            ModeNormalBorder.BackgroundColor = Color.FromArgb("#FFFFFF");
             ModeNormalBorder.Stroke = Color.FromArgb("#D1D5DB");
             ModeNormalBorder.StrokeThickness = 1;
-            ModeNormalLabel.TextColor = Color.FromArgb("#111827");
+            ModeNormalLabel.TextColor = Color.FromArgb("#16A34A");
 
             // Highlight selected mode with its color background, colored stroke, and white text
             switch (mode)

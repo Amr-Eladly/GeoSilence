@@ -272,12 +272,12 @@
                 x:Name="PlaceFormCard"
                 Margin="16,16,16,120"
                 Padding="14"
-                BackgroundColor="White"
+                BackgroundColor="#FFFFFF"
                 CornerRadius="20"
                 HasShadow="True"
                 VerticalOptions="End">
 
-                <VerticalStackLayout Spacing="12">
+                <VerticalStackLayout Spacing="12" BackgroundColor="#FFFFFF">
                     <Label
                         x:Name="PlaceFormTitle"
                         Text="Add Place"
@@ -288,12 +288,13 @@
                         Stroke="#D1D5DB"
                         StrokeThickness="1"
                         StrokeShape="RoundRectangle 6"
-                        Padding="10,8">
+                        Padding="10,8"
+                        BackgroundColor="#FFFFFF">
                         <Entry
                             x:Name="PlaceNameEntry"
                             Placeholder="Place name"
-                            BackgroundColor="Transparent"
-                            TextColor="Black"
+                            BackgroundColor="#FFFFFF"
+                            TextColor="#111827"
                             PlaceholderColor="#9CA3AF"
                             FontSize="13"/>
                     </Border>
@@ -310,7 +311,7 @@
                                 Stroke="#D1D5DB"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="White"
+                                BackgroundColor="#FFFFFF"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Silent"/>
@@ -321,7 +322,7 @@
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#111827"
+                                    TextColor="#DC2626"
                                     FontAttributes="Bold"/>
                             </Border>
                             <Border
@@ -330,7 +331,7 @@
                                 Stroke="#D1D5DB"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="White"
+                                BackgroundColor="#FFFFFF"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Vibrate"/>
@@ -341,7 +342,7 @@
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#111827"
+                                    TextColor="#F59E0B"
                                     FontAttributes="Bold"/>
                             </Border>
                             <Border
@@ -350,7 +351,7 @@
                                 Stroke="#D1D5DB"
                                 StrokeThickness="1"
                                 StrokeShape="RoundRectangle 12"
-                                BackgroundColor="White"
+                                BackgroundColor="#FFFFFF"
                                 Padding="10,8">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnModeButtonTapped" CommandParameter="Normal"/>
@@ -361,7 +362,7 @@
                                     HorizontalOptions="Center"
                                     VerticalOptions="Center"
                                     FontSize="11"
-                                    TextColor="#111827"
+                                    TextColor="#16A34A"
                                     FontAttributes="Bold"/>
                             </Border>
                         </Grid>
