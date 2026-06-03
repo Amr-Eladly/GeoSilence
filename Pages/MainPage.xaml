@@ -291,8 +291,7 @@
                         BackgroundColor="#F9FAFB"
                         TextColor="#111827"
                         PlaceholderColor="#9CA3AF"
-                        FontSize="13"
-                        Padding="10,8"/>
+                        FontSize="13"/>
 
                     <VerticalStackLayout Spacing="6">
                         <Label
