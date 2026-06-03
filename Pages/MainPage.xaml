@@ -36,7 +36,7 @@
             <Border
                 x:Name="SearchBarBorder"
                 Grid.ColumnSpan="2"
-                BackgroundColor="#F9FAFB"
+                BackgroundColor="#FFFFFF"
                 Stroke="#D1D5DB"
                 StrokeThickness="1"
                 StrokeShape="RoundRectangle 18"
@@ -48,7 +48,7 @@
                         Placeholder="Search places..."
                         SearchButtonPressed="OnSearchSubmitted"
                         TextChanged="OnSearchTextChanged"
-                        BackgroundColor="#F9FAFB"
+                        BackgroundColor="Transparent"
                         TextColor="#111827"
                         PlaceholderColor="#6B7280"
                         CancelButtonColor="#6B7280"
