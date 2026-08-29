@@ -9,6 +9,8 @@ namespace GeoSilence.Models
         public double Longitude { get; set; }
         public double Radius { get; set; }
         public string Mode { get; set; } = "Silent";
+        public bool IsActive { get; set; } = true;
+        public bool IsPublic { get; set; }
         public string ActivationType { get; set; } = global::GeoSilence.Models.ActivationType.Automatic.ToString();
         public string Visibility { get; set; } = PlaceVisibility.Private.ToString();
         public bool Deleted { get; set; }

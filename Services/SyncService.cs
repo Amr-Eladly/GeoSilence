@@ -255,6 +255,7 @@ namespace GeoSilence.Services
 
         private static CloudPlaceDto MapToDto(PlaceEntity entity)
         {
+            var visibility = (PlaceVisibility)entity.Visibility;
             return new CloudPlaceDto
             {
                 Id = entity.CloudId,
@@ -264,8 +265,10 @@ namespace GeoSilence.Services
                 Longitude = entity.Longitude,
                 Radius = entity.Radius,
                 Mode = ((ModeType)entity.Mode).ToString(),
+                IsActive = true,
+                IsPublic = visibility == PlaceVisibility.Public,
                 ActivationType = ((ActivationType)entity.ActivationType).ToString(),
-                Visibility = ((PlaceVisibility)entity.Visibility).ToString(),
+                Visibility = visibility.ToString(),
                 Deleted = entity.IsDeleted,
                 CreatedAtUtcMs = entity.CreatedAtUtcMs,
                 UpdatedAtUtcMs = entity.UpdatedAtUtcMs,

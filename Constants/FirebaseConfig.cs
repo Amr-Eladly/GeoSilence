@@ -4,7 +4,7 @@ namespace GeoSilence.Constants
     {
         private const string UnconfiguredApiKey = "REPLACE_WITH_FIREBASE_WEB_API_KEY";
 
-        public const string ApiKey = "AIzaSyDQkgghcqMJj9n6d5MVavts--R1BeOJ8zk";
+        public const string ApiKey = "AIzaSyAKhlqATIz6DM0L0wRUPtesoSyM7EWi9Hg";
         public const string ProjectId = "geosilence-2f35c";
         public const string StorageBucket = "";
 

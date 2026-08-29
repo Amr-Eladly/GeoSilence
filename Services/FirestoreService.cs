@@ -244,6 +244,10 @@ namespace GeoSilence.Services
         private static CloudPlaceDto ParseDocument(JsonElement document)
         {
             var fields = document.GetProperty("fields");
+            var isPublic = ReadOptionalBool(fields, "isPublic", false);
+            var visibility = ReadOptionalString(fields, "visibility", isPublic ? PlaceVisibility.Public.ToString() : PlaceVisibility.Private.ToString());
+            var activationType = ReadOptionalString(fields, "activationType", ActivationType.Automatic.ToString());
+
             return new CloudPlaceDto
             {
                 Id = document.GetProperty("name").GetString()!.Split('/').Last(),
@@ -253,8 +257,10 @@ namespace GeoSilence.Services
                 Longitude = ReadDouble(fields, "longitude"),
                 Radius = ReadDouble(fields, "radius"),
                 Mode = ReadString(fields, "mode"),
-                ActivationType = ReadOptionalString(fields, "activationType", ActivationType.Automatic.ToString()),
-                Visibility = ReadOptionalString(fields, "visibility", InferVisibility(document)),
+                IsActive = ReadOptionalBool(fields, "isActive", true),
+                IsPublic = isPublic || string.Equals(visibility, PlaceVisibility.Public.ToString(), StringComparison.OrdinalIgnoreCase),
+                ActivationType = activationType,
+                Visibility = visibility,
                 Deleted = ReadOptionalBool(fields, "deleted"),
                 CreatedAtUtcMs = ReadTimestamp(fields, "createdAt"),
                 UpdatedAtUtcMs = ReadTimestamp(fields, "updatedAt"),
@@ -293,8 +299,8 @@ namespace GeoSilence.Services
                 ["longitude"] = DoubleValue(place.Longitude),
                 ["radius"] = DoubleValue(place.Radius),
                 ["mode"] = StringValue(place.Mode),
-                ["activationType"] = StringValue(place.ActivationType),
-                ["visibility"] = StringValue(place.Visibility),
+                ["isActive"] = BoolValue(place.IsActive),
+                ["isPublic"] = BoolValue(place.IsPublic),
                 ["deleted"] = BoolValue(place.Deleted),
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
                 ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs),
@@ -313,9 +319,12 @@ namespace GeoSilence.Services
                 ["longitude"] = DoubleValue(place.Longitude),
                 ["radius"] = DoubleValue(place.Radius),
                 ["mode"] = StringValue(place.Mode),
-                ["activationType"] = StringValue(place.ActivationType),
+                ["isActive"] = BoolValue(place.IsActive),
+                ["isPublic"] = BoolValue(true),
+                ["deleted"] = BoolValue(place.Deleted),
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
-                ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs)
+                ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs),
+                ["version"] = IntegerValue(place.Version)
             };
         }
 
@@ -326,11 +335,6 @@ namespace GeoSilence.Services
                 ["uid"] = StringValue(profile.Uid),
                 ["displayName"] = StringValue(profile.DisplayName),
                 ["email"] = StringValue(profile.Email),
-                ["firstName"] = StringValue(profile.FirstName),
-                ["lastName"] = StringValue(profile.LastName),
-                ["dateOfBirth"] = StringValue(profile.DateOfBirthIso),
-                ["photoUrl"] = StringValue(profile.PhotoUrl),
-                ["photoStoragePath"] = StringValue(profile.PhotoStoragePath),
                 ["createdAt"] = TimestampValue(profile.CreatedAtUtcMs),
                 ["updatedAt"] = TimestampValue(profile.UpdatedAtUtcMs)
             };
