@@ -89,8 +89,17 @@ namespace GeoSilence.Services
                 _logger.LogInformation("Cloud delete started for local place {LocalId}", entity.Id);
                 try
                 {
-                    await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, entity.CloudId, ignoreNotFound: true);
-                    await _cloudPlaceRepository.DeletePublicPlaceAsync(entity.CloudId, ignoreNotFound: true);
+                    if ((PlaceVisibility)entity.Visibility == PlaceVisibility.Public)
+                    {
+                        await _cloudPlaceRepository.DeletePublicPlaceAsync(entity.CloudId, ignoreNotFound: true);
+                        await TryDeletePrivateCleanupAsync(userId, entity.CloudId, entity.Id);
+                    }
+                    else
+                    {
+                        await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, entity.CloudId, ignoreNotFound: true);
+                        await TryDeletePublicCleanupAsync(entity.CloudId, entity.Id);
+                    }
+
                     await _databaseService.DeleteAsync(entity.Id);
                     _logger.LogInformation("Cloud delete completed for local place {LocalId}", entity.Id);
                 }
@@ -112,12 +121,12 @@ namespace GeoSilence.Services
                 if ((PlaceVisibility)entity.Visibility == PlaceVisibility.Public)
                 {
                     await _cloudPlaceRepository.UploadPublicPlaceAsync(dto);
-                    await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, entity.CloudId, ignoreNotFound: true);
+                    await TryDeletePrivateCleanupAsync(userId, entity.CloudId, entity.Id);
                 }
                 else
                 {
                     await _cloudPlaceRepository.UploadPrivatePlaceAsync(userId, dto);
-                    await _cloudPlaceRepository.DeletePublicPlaceAsync(entity.CloudId, ignoreNotFound: true);
+                    await TryDeletePublicCleanupAsync(entity.CloudId, entity.Id);
                 }
             }
             catch
@@ -281,6 +290,38 @@ namespace GeoSilence.Services
             return Enum.TryParse<PlaceVisibility>(value, true, out var visibility)
                 ? visibility
                 : PlaceVisibility.Private;
+        }
+
+        private async Task TryDeletePublicCleanupAsync(string cloudId, int localPlaceId)
+        {
+            try
+            {
+                await _cloudPlaceRepository.DeletePublicPlaceAsync(cloudId, ignoreNotFound: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Public cleanup delete skipped for local place {LocalId} cloudId {CloudId}",
+                    localPlaceId,
+                    cloudId);
+            }
+        }
+
+        private async Task TryDeletePrivateCleanupAsync(string userId, string cloudId, int localPlaceId)
+        {
+            try
+            {
+                await _cloudPlaceRepository.DeletePrivatePlaceAsync(userId, cloudId, ignoreNotFound: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "Private cleanup delete skipped for local place {LocalId} cloudId {CloudId}",
+                    localPlaceId,
+                    cloudId);
+            }
         }
 
         private string RequireUserId()

@@ -140,19 +140,19 @@ namespace GeoSilence.PageModels
             // 3. Re-register geofences with the new place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            // 4. Sync in background; don't wait for it
-            _ = Task.Run(async () =>
+            // 4. Sync now and report explicit failure (local save already succeeded)
+            try
             {
-                try
-                {
-                    await _syncService.SyncPlaceAsync(entity.Id);
-                    await LoadPublicPlacesAsync();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
-                }
-            });
+                await _syncService.SyncPlaceAsync(entity.Id);
+                await LoadPublicPlacesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
+                throw new InvalidOperationException(
+                    $"Place saved locally, but cloud sync failed: {ex.Message}",
+                    ex);
+            }
         }
 
         public async Task UpdatePlace(
@@ -178,19 +178,19 @@ namespace GeoSilence.PageModels
             // 3. Re-register geofences with updated place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            // 4. Sync in background; don't wait for it
-            _ = Task.Run(async () =>
+            // 4. Sync now and report explicit failure (local update already succeeded)
+            try
             {
-                try
-                {
-                    await _syncService.SyncPlaceAsync(place.Id);
-                    await LoadPublicPlacesAsync();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
-                }
-            });
+                await _syncService.SyncPlaceAsync(place.Id);
+                await LoadPublicPlacesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
+                throw new InvalidOperationException(
+                    $"Place updated locally, but cloud sync failed: {ex.Message}",
+                    ex);
+            }
         }
 
         public async Task DeletePlace(Place place)
@@ -207,19 +207,19 @@ namespace GeoSilence.PageModels
             // 4. Re-register geofences without the deleted place (must be done before returning)
             await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
 
-            // 5. Sync in background; don't wait for it
-            _ = Task.Run(async () =>
+            // 5. Sync now and report explicit failure (local delete already succeeded)
+            try
             {
-                try
-                {
-                    await _syncService.SyncDeleteAsync(place.Id);
-                    await LoadPublicPlacesAsync();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"SYNC DELETE WARNING: {ex.Message}");
-                }
-            });
+                await _syncService.SyncDeleteAsync(place.Id);
+                await LoadPublicPlacesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SYNC DELETE WARNING: {ex.Message}");
+                throw new InvalidOperationException(
+                    $"Place deleted locally, but cloud sync failed: {ex.Message}",
+                    ex);
+            }
         }
 
         public async Task AddPublicPlaceToMyPlacesAsync(Place publicPlace)

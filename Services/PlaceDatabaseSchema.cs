@@ -15,6 +15,7 @@ namespace GeoSilence.Services
             await EnsureColumnAsync(db, nameof(PlaceEntity.Visibility), $"INTEGER NOT NULL DEFAULT {(int)PlaceVisibility.Private}");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDeleted), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDirty), "INTEGER NOT NULL DEFAULT 0");
+            await EnsureColumnAsync(db, nameof(PlaceEntity.OwnerId), "TEXT NOT NULL DEFAULT ''");
             await EnsureColumnAsync(db, nameof(PlaceEntity.CreatedAtUtcMs), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.UpdatedAtUtcMs), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.LastSyncedAtUtcMs), "INTEGER NULL");

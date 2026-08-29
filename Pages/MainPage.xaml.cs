@@ -237,7 +237,16 @@ namespace GeoSilence.Pages
                     "No");
 
                 if (confirm)
-                    await _vm.DeletePlace(place);
+                {
+                    try
+                    {
+                        await _vm.DeletePlace(place);
+                    }
+                    catch (Exception ex)
+                    {
+                        await DisplayAlert("Sync Error", ex.Message, "OK");
+                    }
+                }
             }
         }
 
@@ -420,7 +429,19 @@ namespace GeoSilence.Pages
                 return false;
             }
 
+            if (name.Length > 120)
+            {
+                await DisplayAlert("Place", "Place name must be 120 characters or less.", "OK");
+                return false;
+            }
+
             var radius = PlaceRadiusSlider.Value;
+
+            if (radius < 25 || radius > 5000)
+            {
+                await DisplayAlert("Place", "Radius must be between 25 and 5000 meters.", "OK");
+                return false;
+            }
 
             if (_editingPlace == null)
             {
