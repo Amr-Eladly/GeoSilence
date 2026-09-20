@@ -40,6 +40,7 @@ namespace GeoSilence.Services
                 Radius = place.Radius,
                 Mode = (int)place.Mode,
                 ActivationType = (int)place.ActivationType,
+                PlaceType = (int)place.PlaceType,
                 Visibility = (int)place.Visibility,
                 IsDeleted = false,
                 IsDirty = true,
@@ -68,6 +69,7 @@ namespace GeoSilence.Services
             entity.Radius = place.Radius;
             entity.Mode = (int)place.Mode;
             entity.ActivationType = (int)place.ActivationType;
+            entity.PlaceType = (int)place.PlaceType;
             entity.Visibility = (int)place.Visibility;
             entity.IsDeleted = false;
             entity.IsDirty = true;
@@ -168,6 +170,7 @@ namespace GeoSilence.Services
                 Radius = entity.Radius,
                 Mode = (ModeType)entity.Mode,
                 ActivationType = (ActivationType)entity.ActivationType,
+                PlaceType = (PlaceType)entity.PlaceType,
                 Visibility = (PlaceVisibility)entity.Visibility,
                 CloudId = entity.CloudId,
                 OwnerId = entity.OwnerId,

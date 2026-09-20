@@ -1,18 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage  
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"  
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"  
-    xmlns:pageModels="clr-namespace:GeoSilence.PageModels" 
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pageModels="clr-namespace:GeoSilence.PageModels"
     xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
     xmlns:conv="clr-namespace:GeoSilence.Converters"
     xmlns:models="clr-namespace:GeoSilence.Models"
-    x:Class="GeoSilence.Pages.MainPage"  
-    x:DataType="pageModels:HomeViewModel"
+    x:Class="GeoSilence.Pages.MainPage"
     Shell.NavBarIsVisible="False">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <conv:InverseBoolConverter x:Key="InverseBoolConverter"/>
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -20,9 +19,9 @@
 
         <!-- MAP (background) -->
         <maps:Map
-        x:Name="MainMap"
-        IsShowingUser="True"
-        MapClicked="OnMapClicked"/>
+            x:Name="MainMap"
+            IsShowingUser="True"
+            MapClicked="OnMapClicked"/>
 
         <Grid
             x:Name="SearchPanel"
@@ -36,12 +35,11 @@
             <Border
                 x:Name="SearchBarBorder"
                 Grid.ColumnSpan="2"
-                BackgroundColor="#FFFFFF"
-                Stroke="#D1D5DB"
-                StrokeThickness="1"
-                StrokeShape="RoundRectangle 18"
+                BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 28"
                 HeightRequest="56"
-                Shadow="0,2,8,#11000000">
+                Shadow="0,2,8,#19000000">
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <SearchBar
                         x:Name="PlaceSearchBar"
@@ -49,9 +47,9 @@
                         SearchButtonPressed="OnSearchSubmitted"
                         TextChanged="OnSearchTextChanged"
                         BackgroundColor="Transparent"
-                        TextColor="#111827"
-                        PlaceholderColor="#6B7280"
-                        CancelButtonColor="#6B7280"
+                        TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
+                        PlaceholderColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
+                        CancelButtonColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
                         FontSize="14"
                         HorizontalOptions="Fill"
                         Margin="4,0,0,0"
@@ -66,7 +64,7 @@
                         Margin="0,0,6,0"
                         VerticalOptions="Center"
                         HorizontalOptions="Center"
-                        Color="#2563EB"/>
+                        Color="{StaticResource MapPrimary}"/>
                     <Border
                         Grid.Column="2"
                         x:Name="AccountAvatarBorder"
@@ -74,7 +72,7 @@
                         HeightRequest="38"
                         Margin="0,5,6,5"
                         Padding="0"
-                        Background="#2563EB"
+                        Background="{StaticResource MapPrimary}"
                         StrokeThickness="0"
                         StrokeShape="RoundRectangle 19">
                         <Border.GestureRecognizers>
@@ -102,164 +100,128 @@
         <VerticalStackLayout
             HorizontalOptions="End"
             VerticalOptions="End"
-            Margin="0,0,18,190"
+            x:Name="MapControls"
+            Margin="0,0,18,116"
             Spacing="12"
             ZIndex="2">
-            <Button
+            <ImageButton
                 x:Name="LocateMeButton"
-                Text="🎯"
+                Source="locate_me.svg"
+                SemanticProperties.Description="Recenter map on my location"
                 Clicked="OnLocateMeClicked"
                 WidthRequest="52"
                 HeightRequest="52"
                 CornerRadius="26"
-                FontSize="20"
+                Padding="12"
                 BackgroundColor="White"
-                TextColor="#111827"
-                Shadow="0,4,14,#22000000"/>
-            <Button
-                x:Name="AddPlaceFabButton"
-                Text="+"
-                Clicked="OnAddPlaceFabClicked"
-                WidthRequest="56"
-                HeightRequest="56"
-                CornerRadius="28"
-                FontSize="30"
-                Padding="0,-2,0,0"
-                BackgroundColor="#2563EB"
-                TextColor="White"
-                Shadow="0,8,18,#33000000"/>
+                BorderWidth="0"
+                Shadow="0,3,8,#26000000"/>
         </VerticalStackLayout>
 
 
-        <Frame
+        <Border
             x:Name="PlacesBottomSheet"
             Margin="0"
-            Padding="16,8,16,14"
-            BackgroundColor="White"
-            CornerRadius="24"
-            HasShadow="True"
-            HeightRequest="160"
+            Padding="18,10,18,18"
+            Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 28"
+            HeightRequest="104"
             VerticalOptions="End"
-            ZIndex="1">
-
-            <Frame.GestureRecognizers>
-                <PanGestureRecognizer PanUpdated="OnBottomSheetPanUpdated"/>
-            </Frame.GestureRecognizers>
-
-            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
-                <BoxView
-                    x:Name="BottomSheetHandle"
-                    WidthRequest="46"
-                    HeightRequest="5"
-                    CornerRadius="3"
-                    BackgroundColor="#D6D8DE"
-                    HorizontalOptions="Center">
-                    <BoxView.GestureRecognizers>
+            ZIndex="3">
+            <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                <Grid x:Name="SheetHeader" RowDefinitions="Auto,Auto" RowSpacing="12">
+                    <Grid.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnBottomSheetPanUpdated"/>
                         <TapGestureRecognizer Tapped="OnBottomSheetHandleTapped"/>
-                    </BoxView.GestureRecognizers>
-                </BoxView>
-
-                <Label
-                    Grid.Row="1"
-                    Text="Places Near Me"
-                    FontSize="20"
-                    Margin="2,0,0,2"
-                    FontAttributes="Bold"/>
-
-                <CollectionView
-                    x:Name="PlacesCollectionView"
-                    Grid.Row="2"
-                    ItemsSource="{Binding NearbyPlaces}"
-                    SelectionMode="None">
-
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="models:Place">
-
-                            <SwipeView>
-
-                                <SwipeView.RightItems>
-                                    <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
-
-                                        <SwipeItemView
-                                            CommandParameter="{Binding .}"
-                                            Invoked="OnDeleteSwipe">
-                                            <Grid
-                                                WidthRequest="56"
-                                                BackgroundColor="#D92D20">
-                                                <Label
-                                                    Text="🗑"
-                                                    FontSize="16"
-                                                    HorizontalOptions="Center"
-                                                    VerticalOptions="Center"/>
-                                            </Grid>
-                                        </SwipeItemView>
-
-                                        <SwipeItemView
-                                            CommandParameter="{Binding .}"
-                                            Invoked="OnEditSwipe">
-                                            <Grid
-                                                WidthRequest="56"
-                                                BackgroundColor="#2563EB">
-                                                <Label
-                                                    Text="⚙"
-                                                    FontSize="16"
-                                                    TextColor="White"
-                                                    HorizontalOptions="Center"
-                                                    VerticalOptions="Center"/>
-                                            </Grid>
-                                        </SwipeItemView>
-
-                                    </SwipeItems>
-                                </SwipeView.RightItems>
-
-                                <Grid
-                                    Padding="4,8"
-                                    ColumnDefinitions="*,Auto"
-                                    RowDefinitions="Auto,Auto">
-                                    <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnPlaceTapped"/>
-                                    </Grid.GestureRecognizers>
-
-                                    <Label
-                                        Text="{Binding Name}"
-                                        FontSize="16"
-                                        FontAttributes="Bold"
-                                        LineBreakMode="TailTruncation"/>
-
-                                    <BoxView
-                                        Grid.Column="1"
-                                        WidthRequest="12"
-                                        HeightRequest="12"
-                                        Margin="12,0,0,0"
-                                        VerticalOptions="Center"
-                                        HorizontalOptions="End"
-                                        BackgroundColor="#DC2626"
-                                        CornerRadius="6">
-                                        <BoxView.Triggers>
-                                            <DataTrigger TargetType="BoxView" Binding="{Binding Mode}" Value="Vibrate">
-                                                <Setter Property="BackgroundColor" Value="#F59E0B"/>
+                    </Grid.GestureRecognizers>
+                    <BoxView WidthRequest="40" HeightRequest="4" CornerRadius="2"
+                             BackgroundColor="#C8C8CE" HorizontalOptions="Center"/>
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="Places" FontSize="27" FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                            <Label Text="{Binding SavedPlacesSummary}" FontSize="14"
+                                   TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="View all" Clicked="OnViewAllClicked"
+                                BackgroundColor="Transparent" FontSize="13" Padding="4,8"
+                                TextColor="{AppThemeBinding Light={StaticResource MapPrimary}, Dark={StaticResource MapPrimaryDark}}"/>
+                        <Button Grid.Column="2" Text="+ Add Place" Clicked="OnAddPlaceFabClicked"
+                                BackgroundColor="{StaticResource MapPrimary}" TextColor="White"
+                                FontSize="14" CornerRadius="22" Padding="12,8"/>
+                    </Grid>
+                </Grid>
+                <Grid Grid.Row="1">
+                    <CollectionView x:Name="PlacesCollectionView" ItemsSource="{Binding ClosestPlaces}" SelectionMode="None"
+                                    Scrolled="OnPlacesCollectionScrolled">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:Place">
+                                <SwipeView x:Name="PlaceSwipe" Margin="0,0,0,10"
+                                           SwipeStarted="OnPlaceCardSwipeStarted" SwipeChanging="OnPlaceCardSwipeChanging" SwipeEnded="OnPlaceCardSwipeEnded"
+                                           BindingContextChanged="OnPlaceCardBindingContextChanged" Unloaded="OnPlaceCardUnloaded">
+                                    <SwipeView.RightItems>
+                                        <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
+                                            <SwipeItemView CommandParameter="{x:Reference PlaceSwipe}" Invoked="OnDeleteSwipe">
+                                                <Grid WidthRequest="58" BackgroundColor="{StaticResource MapDanger}"><Label Text="Delete" TextColor="White" FontSize="12" HorizontalOptions="Center" VerticalOptions="Center"/></Grid>
+                                            </SwipeItemView>
+                                            <SwipeItemView CommandParameter="{x:Reference PlaceSwipe}" Invoked="OnEditSwipe">
+                                                <Grid WidthRequest="58" BackgroundColor="{StaticResource MapPrimary}"><Label Text="Edit" TextColor="White" FontSize="12" HorizontalOptions="Center" VerticalOptions="Center"/></Grid>
+                                            </SwipeItemView>
+                                        </SwipeItems>
+                                    </SwipeView.RightItems>
+                                    <Border Padding="12" StrokeShape="RoundRectangle 16" StrokeThickness="1"
+                                            Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                                            Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                <Setter Property="Background" Value="{AppThemeBinding Light={StaticResource MapSelectedSurface}, Dark={StaticResource MapSelectedSurfaceDark}}"/>
+                                                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource MapSelectedOutline}, Dark={StaticResource MapSelectedOutlineDark}}"/>
                                             </DataTrigger>
-                                            <DataTrigger TargetType="BoxView" Binding="{Binding Mode}" Value="Normal">
-                                                <Setter Property="BackgroundColor" Value="#16A34A"/>
-                                            </DataTrigger>
-                                        </BoxView.Triggers>
-                                    </BoxView>
-
-                                    <Label
-                                        Grid.Row="1"
-                                        Text="{Binding DistanceFormatted, StringFormat='{0} away'}"
-                                        TextColor="#6B7280"
-                                        FontSize="12"/>
-                                </Grid>
-
-                            </SwipeView>
-
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-
-                </CollectionView>
+                                        </Border.Triggers>
+                                        <Border.GestureRecognizers><TapGestureRecognizer Tapped="OnPlaceTapped"/></Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="10"
+                                              BindingContextChanged="OnPlaceCardContentBindingContextChanged">
+                                            <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0" StrokeShape="RoundRectangle 24"
+                                                    Background="{AppThemeBinding Light={StaticResource MapIconContainer}, Dark={StaticResource MapIconContainerDark}}">
+                                                <Label Text="{Binding TypeIcon}" FontSize="20" FontAutoScalingEnabled="False"
+                                                       WidthRequest="40" HeightRequest="40" Padding="0" LineBreakMode="NoWrap"
+                                                       HorizontalTextAlignment="Center" VerticalTextAlignment="Center"/>
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Name}" MaxLines="1" LineBreakMode="TailTruncation" FontSize="16" FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                                                <Label Text="{Binding PlaceMetadata}" MaxLines="1" LineBreakMode="TailTruncation" FontSize="12"
+                                                       TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                                            </VerticalStackLayout>
+                                            <Border Grid.Column="2" Padding="8,4" StrokeThickness="0" StrokeShape="RoundRectangle 14"
+                                                    Background="{AppThemeBinding Light={StaticResource MapSilentContainer}, Dark={StaticResource MapSilentContainerDark}}" VerticalOptions="Center">
+                                                <Border.Triggers>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding Mode}" Value="Vibrate"><Setter Property="Background" Value="{AppThemeBinding Light={StaticResource MapVibrateContainer}, Dark={StaticResource MapVibrateContainerDark}}"/></DataTrigger>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding Mode}" Value="Normal"><Setter Property="Background" Value="{AppThemeBinding Light={StaticResource MapRingContainer}, Dark={StaticResource MapRingContainerDark}}"/></DataTrigger>
+                                                </Border.Triggers>
+                                                <Label Text="{Binding ModeLabel}" FontSize="12" TextColor="{StaticResource MapSilent}">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Mode}" Value="Vibrate"><Setter Property="TextColor" Value="{StaticResource MapVibrate}"/></DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding Mode}" Value="Normal"><Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MapRing}, Dark={StaticResource MapSecondaryTextDark}}"/></DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </SwipeView>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                    <VerticalStackLayout IsVisible="{Binding ShowEmptyState}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+                        <Label Text="No places yet" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                        <Label Text="Add a place to automate your phone mode." FontSize="13" HorizontalOptions="Center"
+                               TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                    </VerticalStackLayout>
+                </Grid>
             </Grid>
-        </Frame>
+        </Border>
 
         <Grid
             x:Name="PlaceFormOverlay"
@@ -272,39 +234,109 @@
                 x:Name="PlaceFormCard"
                 Margin="16,16,16,120"
                 Padding="14"
-                BackgroundColor="#FFFFFF"
+                BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
                 CornerRadius="20"
                 HasShadow="True"
                 VerticalOptions="End">
 
+                <ScrollView MaximumHeightRequest="590">
                 <VerticalStackLayout Spacing="12">
                     <Label
                         x:Name="PlaceFormTitle"
                         Text="Add Place"
                         FontSize="17"
                         FontAttributes="Bold"
-                        TextColor="#111827"/>
+                        TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
 
                     <Entry
                         x:Name="PlaceNameEntry"
                         Placeholder="Place name"
-                        BackgroundColor="#F9FAFB"
-                        TextColor="#111827"
-                        PlaceholderColor="#9CA3AF"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
+                        TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
+                        PlaceholderColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
                         FontSize="13"/>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label
+                            Text="Place Type"
+                            FontAttributes="Bold"
+                            FontSize="12"
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+
+                        <Border
+                            x:Name="PlaceTypeSelector"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="12,10">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnPlaceTypeDropdownTapped" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    x:Name="SelectedPlaceTypeLabel"
+                                    Text="👤 Other"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
+                                    VerticalTextAlignment="Center"/>
+                                <Label
+                                    Grid.Column="1"
+                                    Text="▾"
+                                    FontSize="18"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
+                                    VerticalTextAlignment="Center"
+                                    HorizontalTextAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <Border
+                            x:Name="PlaceTypeMenu"
+                            IsVisible="False"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                            Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
+                            StrokeShape="RoundRectangle 12"
+                            Padding="0">
+                            <CollectionView
+                                x:Name="PlaceTypeOptionsList"
+                                SelectionMode="Single"
+                                SelectionChanged="OnPlaceTypeSelected"
+                                HeightRequest="200">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="12,10"
+                                              ColumnDefinitions="Auto,*"
+                                              ColumnSpacing="10">
+                                            <Label
+                                                Text="{Binding Icon}"
+                                                FontSize="18"
+                                                VerticalTextAlignment="Center"/>
+                                            <Label
+                                                Grid.Column="1"
+                                                Text="{Binding Label}"
+                                                FontSize="13"
+                                                TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
+                                                VerticalTextAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </Border>
+                    </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">
                         <Label
                             Text="Mode"
                             FontAttributes="Bold"
                             FontSize="12"
-                            TextColor="#111827"/>
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                        <Grid ColumnDefinitions="*,*,*"
+                              ColumnSpacing="8">
                             <Button
                                 x:Name="ModeSilentButton"
                                 Text="Silent"
                                 Clicked="OnModeButtonTapped"
-                                BackgroundColor="#F9FAFB"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
                                 TextColor="#DC2626"
                                 FontSize="12"
                                 FontAttributes="Bold"
@@ -315,7 +347,7 @@
                                 Grid.Column="1"
                                 Text="Vibrate"
                                 Clicked="OnModeButtonTapped"
-                                BackgroundColor="#F9FAFB"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
                                 TextColor="#F59E0B"
                                 FontSize="12"
                                 FontAttributes="Bold"
@@ -326,7 +358,7 @@
                                 Grid.Column="2"
                                 Text="Ring"
                                 Clicked="OnModeButtonTapped"
-                                BackgroundColor="#F9FAFB"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
                                 TextColor="#16A34A"
                                 FontSize="12"
                                 FontAttributes="Bold"
@@ -337,17 +369,17 @@
 
                     <VerticalStackLayout Spacing="6">
                         <Grid ColumnDefinitions="*,Auto">
-                            <Label
-                                Text="Radius"
-                                FontAttributes="Bold"
-                                FontSize="12"
-                                TextColor="#111827"/>
+                        <Label
+                            Text="Radius"
+                            FontAttributes="Bold"
+                            FontSize="12"
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
                             <Label
                                 Grid.Column="1"
                                 x:Name="RadiusValueLabel"
                                 Text="50 m"
                                 FontSize="12"
-                                TextColor="#6B7280"/>
+                                TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
                         </Grid>
                         <Slider
                             x:Name="PlaceRadiusSlider"
@@ -355,8 +387,8 @@
                             Maximum="200"
                             Value="50"
                             ValueChanged="OnRadiusSliderValueChanged"
-                            MinimumTrackColor="#2563EB"
-                            MaximumTrackColor="#E5E7EB"/>
+                            MinimumTrackColor="{StaticResource MapPrimary}"
+                            MaximumTrackColor="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"/>
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="8">
@@ -364,10 +396,11 @@
                             Text="Activation Type"
                             FontAttributes="Bold"
                             FontSize="12"
-                            TextColor="#111827"/>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="8">
                             <Border
-                                Stroke="#D1D5DB"
+                                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
                                 StrokeShape="RoundRectangle 12"
                                 Padding="10,8">
                                 <RadioButton
@@ -375,18 +408,20 @@
                                     GroupName="ActivationType"
                                     Content="Automatic"
                                     IsChecked="True"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                                     FontSize="12"
                                     CheckedChanged="OnActivationTypeCheckedChanged"/>
                             </Border>
                             <Border
                                 Grid.Column="1"
-                                Stroke="#D1D5DB"
+                                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
                                 StrokeShape="RoundRectangle 12"
                                 Padding="10,8">
                                 <RadioButton
                                     x:Name="ActivationConfirmRadio"
                                     GroupName="ActivationType"
                                     Content="Confirm First"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                                     FontSize="12"
                                     CheckedChanged="OnActivationTypeCheckedChanged"/>
                             </Border>
@@ -398,10 +433,11 @@
                             Text="Visibility"
                             FontAttributes="Bold"
                             FontSize="12"
-                            TextColor="#111827"/>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="8">
                             <Border
-                                Stroke="#D1D5DB"
+                                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
                                 StrokeShape="RoundRectangle 12"
                                 Padding="10,8">
                                 <RadioButton
@@ -409,31 +445,34 @@
                                     GroupName="Visibility"
                                     Content="Private"
                                     IsChecked="True"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                                     FontSize="12"
                                     CheckedChanged="OnVisibilityCheckedChanged"/>
                             </Border>
                             <Border
                                 Grid.Column="1"
-                                Stroke="#D1D5DB"
+                                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
                                 StrokeShape="RoundRectangle 12"
                                 Padding="10,8">
                                 <RadioButton
                                     x:Name="VisibilityPublicRadio"
                                     GroupName="Visibility"
                                     Content="Public"
+                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                                     FontSize="12"
                                     CheckedChanged="OnVisibilityCheckedChanged"/>
                             </Border>
                         </Grid>
                     </VerticalStackLayout>
 
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="*,*"
+                          ColumnSpacing="10">
                         <Button
                             x:Name="PlaceFormCancelButton"
                             Text="Cancel"
                             Clicked="OnCancelPlaceFormClicked"
-                            BackgroundColor="#EEEEEE"
-                            TextColor="Black"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                             HeightRequest="38"
                             FontSize="13"/>
 
@@ -442,10 +481,13 @@
                             Grid.Column="1"
                             Text="Save"
                             Clicked="OnSavePlaceFormClicked"
+                            BackgroundColor="{StaticResource MapPrimary}"
+                            TextColor="White"
                             HeightRequest="38"
                             FontSize="13"/>
                     </Grid>
                 </VerticalStackLayout>
+                </ScrollView>
             </Frame>
         </Grid>
 

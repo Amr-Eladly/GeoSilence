@@ -214,6 +214,7 @@ namespace GeoSilence.Services
                     Radius = remote.Radius,
                     Mode = (int)ParseMode(remote.Mode),
                     ActivationType = (int)ParseActivationType(remote.ActivationType),
+                    PlaceType = (int)ParsePlaceType(remote.PlaceType),
                     Visibility = (int)ParseVisibility(remote.Visibility),
                     IsDeleted = remote.Deleted,
                     IsDirty = false,
@@ -241,6 +242,7 @@ namespace GeoSilence.Services
             existing.Radius = remote.Radius;
             existing.Mode = (int)ParseMode(remote.Mode);
             existing.ActivationType = (int)ParseActivationType(remote.ActivationType);
+            existing.PlaceType = (int)ParsePlaceType(remote.PlaceType);
             existing.Visibility = (int)ParseVisibility(remote.Visibility);
             existing.IsDeleted = remote.Deleted;
             existing.OwnerId = userId;
@@ -265,6 +267,7 @@ namespace GeoSilence.Services
                 Radius = entity.Radius,
                 Mode = ((ModeType)entity.Mode).ToString(),
                 ActivationType = ((ActivationType)entity.ActivationType).ToString(),
+                PlaceType = ((PlaceType)entity.PlaceType).ToString(),
                 Visibility = ((PlaceVisibility)entity.Visibility).ToString(),
                 Deleted = entity.IsDeleted,
                 CreatedAtUtcMs = entity.CreatedAtUtcMs,
@@ -283,6 +286,13 @@ namespace GeoSilence.Services
             return Enum.TryParse<ActivationType>(value, true, out var activationType)
                 ? activationType
                 : ActivationType.Automatic;
+        }
+
+        private static PlaceType ParsePlaceType(string value)
+        {
+            return Enum.TryParse<PlaceType>(value, true, out var placeType)
+                ? placeType
+                : PlaceType.Other;
         }
 
         private static PlaceVisibility ParseVisibility(string value)

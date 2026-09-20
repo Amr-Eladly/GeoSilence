@@ -19,7 +19,7 @@ namespace GeoSilence
     public class LocationHeartbeatService : Service
     {
         public const string ActionStart = "com.companyname.geosilence.HEARTBEAT_START";
-        public const string ActionStop  = "com.companyname.geosilence.HEARTBEAT_STOP";
+        public const string ActionStop = "com.companyname.geosilence.HEARTBEAT_STOP";
 
         private const int NotificationId = 4711;
         private const string ChannelId = "geosilence_location_channel";
@@ -158,7 +158,7 @@ namespace GeoSilence
             var builder = new NotificationCompat.Builder(this, ChannelId)
                 .SetContentTitle("GeoSilence")
                 .SetContentText("Background location active")
-                .SetSmallIcon(Resource.Mipmap.appicon)
+                .SetSmallIcon(Android.Resource.Drawable.StatSysWarning)
                 .SetOngoing(true)
                 .SetLocalOnly(true)
                 .SetPriority(NotificationCompat.PriorityMin)

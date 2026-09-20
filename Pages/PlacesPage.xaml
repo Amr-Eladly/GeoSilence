@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="GeoSilence.Pages.PlacesPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:models="clr-namespace:GeoSilence.Models"
+             Title="Places"
+             BackgroundColor="{AppThemeBinding Light=#F8F7FC, Dark=#111116}">
+    <Grid RowDefinitions="Auto,*" Padding="16,12">
+        <VerticalStackLayout Spacing="2" Margin="4,0,4,14">
+            <Label Text="All places" FontSize="27" FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+            <Label Text="{Binding SavedPlacesSummary}" FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+        </VerticalStackLayout>
+        <Grid Grid.Row="1">
+            <CollectionView ItemsSource="{Binding NearbyPlaces}" SelectionMode="None"
+                            Scrolled="OnPlacesCollectionScrolled">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:Place">
+                        <SwipeView x:Name="PlaceSwipe" Margin="0,0,0,10"
+                                   SwipeStarted="OnPlaceCardSwipeStarted" SwipeChanging="OnPlaceCardSwipeChanging" SwipeEnded="OnPlaceCardSwipeEnded"
+                                   BindingContextChanged="OnPlaceCardBindingContextChanged" Unloaded="OnPlaceCardUnloaded">
+                            <SwipeView.RightItems>
+                                <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
+                                    <SwipeItemView CommandParameter="{x:Reference PlaceSwipe}" Invoked="OnDeleteSwipe">
+                                        <Grid WidthRequest="64" BackgroundColor="{StaticResource MapDanger}">
+                                            <Label Text="Delete" TextColor="White" FontSize="12" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </Grid>
+                                    </SwipeItemView>
+                                    <SwipeItemView CommandParameter="{x:Reference PlaceSwipe}" Invoked="OnEditSwipe">
+                                        <Grid WidthRequest="64" BackgroundColor="{StaticResource MapPrimary}">
+                                            <Label Text="Edit" TextColor="White" FontSize="12" HorizontalOptions="Center" VerticalOptions="Center"/>
+                                        </Grid>
+                                    </SwipeItemView>
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+                            <Border Padding="14" StrokeShape="RoundRectangle 16" StrokeThickness="1"
+                                    Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}">
+                                <Border.GestureRecognizers><TapGestureRecognizer Tapped="OnPlaceTapped"/></Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="10"
+                                      BindingContextChanged="OnPlaceCardContentBindingContextChanged">
+                                    <Border WidthRequest="48" HeightRequest="48" StrokeThickness="0" StrokeShape="RoundRectangle 24"
+                                            Background="{AppThemeBinding Light={StaticResource MapIconContainer}, Dark={StaticResource MapIconContainerDark}}">
+                                        <Label Text="{Binding TypeIcon}" FontSize="20" FontAutoScalingEnabled="False"
+                                               WidthRequest="40" HeightRequest="40" Padding="0" LineBreakMode="NoWrap"
+                                               HorizontalTextAlignment="Center" VerticalTextAlignment="Center"/>
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding Name}" MaxLines="1" LineBreakMode="TailTruncation" FontSize="16" FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                                        <Label Text="{Binding PlaceMetadata}" MaxLines="1" LineBreakMode="TailTruncation" FontSize="12"
+                                               TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="2" Text="{Binding ModeLabel}" FontSize="12" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                                </Grid>
+                            </Border>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+            <VerticalStackLayout IsVisible="{Binding ShowEmptyState}" VerticalOptions="Center" HorizontalOptions="Center" Spacing="6">
+                <Label Text="No saved places yet" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                <Label Text="Go back to the map to add one." FontSize="13" HorizontalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

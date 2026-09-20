@@ -14,6 +14,10 @@ namespace GeoSilence.PageModels
         private readonly PlaceRepository _repo;
         private readonly SyncService _syncService;
         private readonly CloudPlaceRepository _cloudPlaceRepository;
+        private readonly IAuthenticationService _authenticationService;
+        private string? _loadedUserId;
+        private Task? _backgroundInitialization;
+        private int _mutationVersion;
 
         private CancellationTokenSource? _cts;
 
@@ -27,6 +31,24 @@ namespace GeoSilence.PageModels
         private static readonly TimeSpan ZoneExitGracePeriod = TimeSpan.FromSeconds(12);
 
         public bool ShowEmptyState => !IsLoading && NearbyPlaces.Count == 0;
+        public ObservableCollection<Place> ClosestPlaces { get; } = new();
+        public int SavedPlacesCount => NearbyPlaces.Count;
+        public string SavedPlacesSummary => $"{SavedPlacesCount} saved location{(SavedPlacesCount == 1 ? "" : "s")}";
+        public bool HasMorePlaces => SavedPlacesCount > 3;
+
+        private Place? _selectedPlace;
+        public Place? SelectedPlace
+        {
+            get => _selectedPlace;
+            set
+            {
+                if (_selectedPlace == value) return;
+                if (_selectedPlace != null) _selectedPlace.IsSelected = false;
+                _selectedPlace = value;
+                if (_selectedPlace != null) _selectedPlace.IsSelected = true;
+                OnPropertyChanged();
+            }
+        }
 
         [ObservableProperty]
         private ObservableCollection<Place> nearbyPlaces = new();
@@ -54,7 +76,8 @@ namespace GeoSilence.PageModels
             BackgroundGeofenceService backgroundGeofenceService,
             PlaceRepository repo,
             SyncService syncService,
-            CloudPlaceRepository cloudPlaceRepository)
+            CloudPlaceRepository cloudPlaceRepository,
+            IAuthenticationService authenticationService)
         {
             _locationService = locationService;
             _geoService = geoService;
@@ -63,44 +86,97 @@ namespace GeoSilence.PageModels
             _repo = repo;
             _syncService = syncService;
             _cloudPlaceRepository = cloudPlaceRepository;
+            _authenticationService = authenticationService;
+            _authenticationService.AuthStateChanged += OnAuthStateChanged;
+        }
+
+        private void OnAuthStateChanged(object? sender, EventArgs e)
+        {
+            if (_authenticationService.IsSignedIn) return;
+            Interlocked.Increment(ref _mutationVersion);
+            _loadedUserId = null;
+            StopTracking();
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                SelectedPlace = null;
+                _allPlaces.Clear();
+                UpdateVisiblePlaces([]);
+                PublicPlaces.Clear();
+            });
         }
 
         public async Task InitializeAsync()
         {
+            var userId = _authenticationService.CurrentUser?.Uid;
+            if (!string.IsNullOrWhiteSpace(userId) && _loadedUserId == userId)
+                return;
+
             await _repo.InitializeAsync();
-            await _syncService.SyncAfterLoginAsync();
             var places = await _repo.GetPlacesAsync();
 
             _allPlaces.Clear();
             _allPlaces.AddRange(places);
+            await MainThread.InvokeOnMainThreadAsync(() => UpdateVisiblePlaces(places));
 
-            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
-            await LoadPublicPlacesAsync();
+            _loadedUserId = userId;
+            IsLoading = false;
+            _backgroundInitialization = Task.Run(() => FinishInitializationAsync(userId));
+        }
 
-            await LoadAsync();
+        private async Task FinishInitializationAsync(string? userId)
+        {
+            var initialMutationVersion = Volatile.Read(ref _mutationVersion);
+            try
+            {
+                await _syncService.SyncAfterLoginAsync();
+                if (_authenticationService.CurrentUser?.Uid != userId) return;
+
+                if (Volatile.Read(ref _mutationVersion) == initialMutationVersion)
+                {
+                    var places = await _repo.GetPlacesAsync();
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (Volatile.Read(ref _mutationVersion) != initialMutationVersion) return;
+                        _allPlaces.Clear();
+                        _allPlaces.AddRange(places);
+                        UpdateVisiblePlaces(places);
+                    });
+                }
+                var privatePlaces = await MainThread.InvokeOnMainThreadAsync(() => GetPrivatePlaces().ToList());
+                await _backgroundGeofenceService.RegisterPlacesAsync(privatePlaces);
+                await LoadPublicPlacesAsync();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"BACKGROUND INIT ERROR: {ex}");
+            }
         }
 
         public async Task StartTrackingAsync()
         {
-            _cts = new CancellationTokenSource();
+            if (_cts is { IsCancellationRequested: false }) return;
+            var cts = new CancellationTokenSource();
+            _cts = cts;
 
-            // Fast polling (2s) for distance updates while the UI is visible.
-            // This gives smooth distance changes without API calls. When the app
-            // goes to background, the heartbeat service takes over for geofencing.
-            while (!_cts.Token.IsCancellationRequested)
+            // Background geofencing handles mode changes; the visible list only
+            // needs occasional distance updates.
+            while (!cts.Token.IsCancellationRequested)
             {
                 try
                 {
-                    // Run distance calculation off the main thread to avoid UI freeze
-                    await Task.Run(() => LoadAsync(), _cts.Token);
+                    await LoadAsync();
+                    await Task.Delay(TimeSpan.FromSeconds(10), cts.Token);
                 }
+                catch (OperationCanceledException) { break; }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"TRACKING ERROR: {ex.Message}");
+                    try { await Task.Delay(TimeSpan.FromSeconds(10), cts.Token); }
+                    catch (OperationCanceledException) { break; }
                 }
-
-                await Task.Delay(TimeSpan.FromSeconds(2), _cts.Token);
             }
+            if (ReferenceEquals(_cts, cts)) _cts = null;
+            cts.Dispose();
         }
 
         public void StopTracking()
@@ -115,8 +191,10 @@ namespace GeoSilence.PageModels
             ModeType mode,
             double radius,
             ActivationType activationType,
+            PlaceType placeType,
             PlaceVisibility visibility)
         {
+            Interlocked.Increment(ref _mutationVersion);
             var place = new Place
             {
                 Name = name,
@@ -125,6 +203,7 @@ namespace GeoSilence.PageModels
                 Radius = radius,
                 Mode = mode,
                 ActivationType = activationType,
+                PlaceType = placeType,
                 Visibility = visibility,
                 IsActive = true
             };
@@ -132,7 +211,7 @@ namespace GeoSilence.PageModels
             // 1. Save to DB and add to local list immediately (fast)
             var entity = await _repo.AddPlaceAsync(place);
             place.Id = entity.Id;
-            _allPlaces.Add(place);
+            if (!_allPlaces.Any(existing => existing.Id == place.Id)) _allPlaces.Add(place);
 
             // 2. Update UI immediately with just distance calculation (fast)
             await LoadAsync();
@@ -149,9 +228,6 @@ namespace GeoSilence.PageModels
             catch (Exception ex)
             {
                 Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
-                throw new InvalidOperationException(
-                    $"Place saved locally, but cloud sync failed: {ex.Message}",
-                    ex);
             }
         }
 
@@ -161,12 +237,15 @@ namespace GeoSilence.PageModels
             ModeType newMode,
             double radius,
             ActivationType activationType,
+            PlaceType placeType,
             PlaceVisibility visibility)
         {
+            Interlocked.Increment(ref _mutationVersion);
             place.Name = newName;
             place.Mode = newMode;
             place.Radius = radius;
             place.ActivationType = activationType;
+            place.PlaceType = placeType;
             place.Visibility = visibility;
 
             // 1. Save to DB immediately
@@ -187,16 +266,15 @@ namespace GeoSilence.PageModels
             catch (Exception ex)
             {
                 Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
-                throw new InvalidOperationException(
-                    $"Place updated locally, but cloud sync failed: {ex.Message}",
-                    ex);
             }
         }
 
         public async Task DeletePlace(Place place)
         {
+            Interlocked.Increment(ref _mutationVersion);
             // 1. Remove from local list immediately
             _allPlaces.Remove(place);
+            if (SelectedPlace?.Id == place.Id) SelectedPlace = null;
 
             // 2. Mark as deleted in DB
             await _repo.DeletePlaceAsync(place.Id);
@@ -231,6 +309,7 @@ namespace GeoSilence.PageModels
                 publicPlace.Mode,
                 publicPlace.Radius,
                 ActivationType.Automatic,
+                publicPlace.PlaceType,
                 PlaceVisibility.Private);
         }
 
@@ -239,13 +318,10 @@ namespace GeoSilence.PageModels
             var location = await _locationService.GetCurrentLocationAsync();
 
 
-            if (location == null)
-                return;
-
             var sorted = _allPlaces
                 .Select(p =>
                 {
-                    p.Distance = Microsoft.Maui.Devices.Sensors.Location.CalculateDistance(
+                    if (location != null) p.Distance = Microsoft.Maui.Devices.Sensors.Location.CalculateDistance(
                         location.Latitude,
                         location.Longitude,
                         p.Latitude,
@@ -257,24 +333,38 @@ namespace GeoSilence.PageModels
                 .OrderBy(p => p.Distance)
                 .ToList();
 
-            UpdateModeForLocation(location, sorted);
+            if (location != null) UpdateModeForLocation(location, sorted);
 
             bool isSame =
                 NearbyPlaces.Count == sorted.Count &&
                 NearbyPlaces.Select(p => p.Id).SequenceEqual(sorted.Select(p => p.Id));
 
             if (isSame)
+            {
+                MainThread.BeginInvokeOnMainThread(() => IsLoading = false);
                 return;
+            }
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                NearbyPlaces.Clear();
-
-                foreach (var place in sorted)
-                    NearbyPlaces.Add(place);
-
+                UpdateVisiblePlaces(sorted);
                 IsLoading = false;
             });
+        }
+
+        private void UpdateVisiblePlaces(IEnumerable<Place> places)
+        {
+            NearbyPlaces.Clear();
+            ClosestPlaces.Clear();
+            foreach (var place in places)
+            {
+                NearbyPlaces.Add(place);
+                if (ClosestPlaces.Count < 3) ClosestPlaces.Add(place);
+            }
+            OnPropertyChanged(nameof(SavedPlacesCount));
+            OnPropertyChanged(nameof(SavedPlacesSummary));
+            OnPropertyChanged(nameof(HasMorePlaces));
+            OnPropertyChanged(nameof(ShowEmptyState));
         }
 
         private void UpdateModeForLocation(
@@ -347,6 +437,7 @@ namespace GeoSilence.PageModels
                         Radius = place.Radius,
                         Mode = ParseMode(place.Mode),
                         ActivationType = ParseActivationType(place.ActivationType),
+                        PlaceType = ParsePlaceType(place.PlaceType),
                         Visibility = PlaceVisibility.Public,
                         IsActive = false
                     })
@@ -377,6 +468,13 @@ namespace GeoSilence.PageModels
             return Enum.TryParse<ActivationType>(value, true, out var activationType)
                 ? activationType
                 : ActivationType.Automatic;
+        }
+
+        private static PlaceType ParsePlaceType(string value)
+        {
+            return Enum.TryParse<PlaceType>(value, true, out var placeType)
+                ? placeType
+                : PlaceType.Other;
         }
     }
 }

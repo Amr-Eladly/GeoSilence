@@ -31,7 +31,6 @@ namespace GeoSilence.Pages
             try
             {
                 await _authenticationService.RegisterAsync(email, password, displayName);
-                await Shell.Current.GoToAsync("//main");
             }
             catch (Exception ex)
             {

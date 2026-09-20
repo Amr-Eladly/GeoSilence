@@ -38,13 +38,20 @@ namespace GeoSilence.Services
 
             _initialized = true;
 
-            var uid = await SecureStorage.Default.GetAsync(SecureKeyUid);
-            var email = await SecureStorage.Default.GetAsync(SecureKeyEmail);
-            var displayName = await SecureStorage.Default.GetAsync(SecureKeyDisplayName);
-            _idToken = await SecureStorage.Default.GetAsync(SecureKeyIdToken);
-            _refreshToken = await SecureStorage.Default.GetAsync(SecureKeyRefreshToken);
+            var uidTask = SecureStorage.Default.GetAsync(SecureKeyUid);
+            var emailTask = SecureStorage.Default.GetAsync(SecureKeyEmail);
+            var displayNameTask = SecureStorage.Default.GetAsync(SecureKeyDisplayName);
+            var idTokenTask = SecureStorage.Default.GetAsync(SecureKeyIdToken);
+            var refreshTokenTask = SecureStorage.Default.GetAsync(SecureKeyRefreshToken);
+            var expiresAtTask = SecureStorage.Default.GetAsync(SecureKeyExpiresAt);
+            await Task.WhenAll(uidTask, emailTask, displayNameTask, idTokenTask, refreshTokenTask, expiresAtTask);
 
-            var expiresAtValue = await SecureStorage.Default.GetAsync(SecureKeyExpiresAt);
+            var uid = await uidTask;
+            var email = await emailTask;
+            var displayName = await displayNameTask;
+            _idToken = await idTokenTask;
+            _refreshToken = await refreshTokenTask;
+            var expiresAtValue = await expiresAtTask;
             if (DateTimeOffset.TryParse(expiresAtValue, out var expiresAt))
                 _expiresAt = expiresAt;
 
@@ -63,15 +70,8 @@ namespace GeoSilence.Services
                 DisplayName = displayName ?? string.Empty
             };
 
-            try
-            {
-                await GetIdTokenAsync();
-                AuthStateChanged?.Invoke(this, EventArgs.Empty);
-            }
-            catch
-            {
-                await ClearSessionInternalAsync();
-            }
+            // A saved refresh token represents the device session. Refresh the ID token
+            // when an authenticated request needs it, not while showing the first page.
         }
 
         public async Task<GeoSilenceUser> RegisterAsync(string email, string password, string displayName)

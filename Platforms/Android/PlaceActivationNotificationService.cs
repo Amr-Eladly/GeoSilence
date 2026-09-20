@@ -59,7 +59,7 @@ namespace GeoSilence
                 flags);
 
             var builder = new NotificationCompat.Builder(context, ChannelId)
-                .SetSmallIcon(Resource.Mipmap.appicon)
+                .SetSmallIcon(Android.Resource.Drawable.StatSysWarning)
                 .SetContentTitle("GeoSilence")
                 .SetContentText($"You entered {place.Name}. Activate {((ModeType)place.Mode)} mode?")
                 .SetStyle(new NotificationCompat.BigTextStyle()
@@ -67,8 +67,10 @@ namespace GeoSilence
                 .SetAutoCancel(true)
                 .SetPriority((int)NotificationPriority.High)
                 .SetCategory(NotificationCompat.CategoryReminder)
-                .AddAction(0, "Activate", activatePendingIntent)
-                .AddAction(0, "Ignore", ignorePendingIntent);
+                // Android resolves each action icon when rendering the notification.
+                // A resource ID of 0 causes Resources.NotFoundException (#0x0).
+                .AddAction(Android.Resource.Drawable.StatSysWarning, "Activate", activatePendingIntent)
+                .AddAction(Android.Resource.Drawable.StatSysWarning, "Ignore", ignorePendingIntent);
 
             NotificationManagerCompat.From(context).Notify(GetNotificationId(place.Id), builder.Build());
             GeoLog.Write("NOTIFY", $"Activation prompt shown for place {place.Id} ({place.Name})");

@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.Globalization;
 using GeoSilence.Models;
+using GeoSilence.Controls;
 using GeoSilence.PageModels;
 using GeoSilence.Services;
 using Microsoft.Maui.Controls.Maps;
@@ -8,10 +9,11 @@ using Microsoft.Maui.Maps;
 
 namespace GeoSilence.Pages
 {
-    public partial class MainPage : ContentPage
+    public partial class MainPage : ContentPage, IQueryAttributable
     {
         private readonly HomeViewModel _vm;
         private readonly AccountProfileService _accountProfileService;
+        private readonly IAuthenticationService _authenticationService;
         private readonly SearchService _searchService = new();
         private NotifyCollectionChangedEventHandler? _collectionHandler;
         private NotifyCollectionChangedEventHandler? _publicCollectionHandler;
@@ -25,21 +27,39 @@ namespace GeoSilence.Pages
         private ModeType _selectedMode = ModeType.Silent;
         private ActivationType _selectedActivationType = ActivationType.Automatic;
         private PlaceVisibility _selectedVisibility = PlaceVisibility.Private;
-        private double _bottomSheetPanStartHeight;
+        private PlaceType _selectedPlaceType = PlaceType.Other;
+        private double _bottomSheetPanStartTranslation;
+        private bool _sheetExpanded;
         private bool _isSearching;
         private bool _isSavingPlace;
+        private bool _pinRefreshScheduled;
+        private readonly HashSet<SwipeView> _activePlaceSwipes = new();
+        private bool _isDraggingSheet;
+        private string? _mapInitializedForUserId;
+        private double _sheetDragOffset;
 
-        private const double BottomSheetCollapsedHeight = 160;
-        private const double BottomSheetExpandedHeight = 360;
+        private const double BottomSheetCollapsedHeight = 104;
+        private double BottomSheetExpandedHeight => Math.Max(220, Math.Min(Height * 0.52, 130 + _vm.ClosestPlaces.Count * 60));
+        private double BottomSheetCollapsedTranslation => BottomSheetExpandedHeight - BottomSheetCollapsedHeight;
+        private int? _routeFocusId;
+        private int? _routeEditId;
         private const double KeyboardFormOffset = -150;
 
-        public MainPage(HomeViewModel vm, AccountProfileService accountProfileService)
+        public MainPage(HomeViewModel vm, AccountProfileService accountProfileService, IAuthenticationService authenticationService)
         {
             InitializeComponent();
             BindingContext = vm;
             _vm = vm;
             _accountProfileService = accountProfileService;
+            _authenticationService = authenticationService;
             _placeFormCard = this.FindByName<VisualElement>("PlaceFormCard");
+            SizeChanged += (_, _) => UpdateBottomSheetLayout();
+        }
+
+        public void ApplyQueryAttributes(IDictionary<string, object> query)
+        {
+            if (query.TryGetValue("focusPlaceId", out var focus) && int.TryParse(focus?.ToString(), out var focusId)) _routeFocusId = focusId;
+            if (query.TryGetValue("editPlaceId", out var edit) && int.TryParse(edit?.ToString(), out var editId)) _routeEditId = editId;
         }
 
         private void OnMapClicked(object sender, MapClickedEventArgs e)
@@ -142,36 +162,39 @@ namespace GeoSilence.Pages
             MainMap.Pins.Clear();
             _focusedPlacePin = null;
 
-            foreach (var place in _vm.NearbyPlaces.Where(place => place.Visibility == PlaceVisibility.Private).ToList())
+            foreach (var place in _vm.NearbyPlaces.ToList())
             {
-                var pin = new Pin
+                var pin = new PlaceMapPin
                 {
                     Label = place.Name,
                     Address = $"{place.Mode} · {place.Radius:F0} m",
                     Type = PinType.Place,
+                    ImageSource = ImageSource.FromFile(GetPlaceTypeMarkerImage(place.PlaceType)),
                     Location = new Microsoft.Maui.Devices.Sensors.Location(
                         place.Latitude,
-                        place.Longitude)
+                        place.Longitude),
+                    BindingContext = place
                 };
                 pin.MarkerClicked += OnMapPinClicked;
 
                 MainMap.Pins.Add(pin);
 
-                if (_focusedPlacePin == null &&
-                    AreSamePlace(pin.Location, _pendingPlaceLocation) &&
-                    string.Equals(pin.Label, _pendingPlaceName, StringComparison.Ordinal))
-                {
-                    _focusedPlacePin = pin;
-                }
+                if (_vm.SelectedPlace?.Id == place.Id) _focusedPlacePin = pin;
             }
 
-            foreach (var place in _vm.PublicPlaces.ToList())
+            var ownedCloudIds = _vm.NearbyPlaces
+                .Where(place => !string.IsNullOrWhiteSpace(place.CloudId))
+                .Select(place => place.CloudId)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var place in _vm.PublicPlaces.Where(place => !ownedCloudIds.Contains(place.CloudId)).ToList())
             {
-                var pin = new Pin
+                var pin = new PlaceMapPin
                 {
                     Label = place.Name,
                     Address = $"{place.Mode} · {place.Radius:F0} m",
                     Type = PinType.SearchResult,
+                    ImageSource = ImageSource.FromFile(GetPlaceTypeMarkerImage(place.PlaceType)),
                     Location = new Microsoft.Maui.Devices.Sensors.Location(
                         place.Latitude,
                         place.Longitude),
@@ -185,11 +208,34 @@ namespace GeoSilence.Pages
                 MainMap.Pins.Add(_searchResultPin);
         }
 
+        private static string GetPlaceTypeMarkerImage(PlaceType placeType) => placeType switch
+        {
+            PlaceType.Education => "marker_education.svg",
+            PlaceType.Religious => "marker_religious.svg",
+            PlaceType.Work => "marker_work.svg",
+            PlaceType.Hospital => "marker_hospital.svg",
+            _ => "marker_other.svg"
+        };
+
         private void OnPlacesChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                RefreshPins();
+                if (_pinRefreshScheduled) return;
+                _pinRefreshScheduled = true;
+                Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(100), () =>
+                {
+                    _pinRefreshScheduled = false;
+                    if (Shell.Current.CurrentPage != this) return;
+                    if (_isDraggingSheet)
+                    {
+                        OnPlacesChanged(null, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+                        return;
+                    }
+                    UpdateBottomSheetLayout();
+                    RefreshPins();
+                    UpdateSelectedGeofence();
+                });
             });
         }
 
@@ -217,6 +263,7 @@ namespace GeoSilence.Pages
         {
             if (GetSwipePlace(sender) is Place place)
             {
+                ResetSwipeForItem(sender);
                 ShowPlaceForm(
                     new Microsoft.Maui.Devices.Sensors.Location(
                         place.Latitude,
@@ -230,6 +277,7 @@ namespace GeoSilence.Pages
         {
             if (GetSwipePlace(sender) is Place place)
             {
+                ResetSwipeForItem(sender);
                 bool confirm = await DisplayAlert(
                     "Delete",
                     $"Delete {place.Name}?",
@@ -255,9 +303,63 @@ namespace GeoSilence.Pages
             return sender switch
             {
                 SwipeItem swipeItem => swipeItem.CommandParameter as Place,
-                SwipeItemView swipeItemView => swipeItemView.CommandParameter as Place,
+                SwipeItemView { CommandParameter: SwipeView swipeView } => swipeView.BindingContext as Place,
                 _ => null
             };
+        }
+
+        private void ResetSwipeForItem(object sender)
+        {
+            if (sender is SwipeItemView { CommandParameter: SwipeView swipeView })
+            {
+                PlaceSwipeLayout.Reset(swipeView, close: true);
+                _activePlaceSwipes.Remove(swipeView);
+            }
+        }
+
+        private void OnPlaceCardSwipeChanging(object sender, SwipeChangingEventArgs e)
+        {
+            if (sender is SwipeView swipe) PlaceSwipeLayout.Change(swipe, e.Offset, 116);
+        }
+
+        private void OnPlaceCardSwipeStarted(object sender, SwipeStartedEventArgs e)
+        {
+            if (sender is not SwipeView swipe) return;
+            _activePlaceSwipes.Add(swipe);
+            PlaceSwipeLayout.Start(swipe);
+        }
+
+        private void OnPlaceCardSwipeEnded(object sender, SwipeEndedEventArgs e)
+        {
+            if (sender is not SwipeView swipe) return;
+            PlaceSwipeLayout.End(swipe, e.IsOpen, 116);
+            if (!e.IsOpen) _activePlaceSwipes.Remove(swipe);
+        }
+
+        private void OnPlaceCardBindingContextChanged(object sender, EventArgs e)
+        {
+            ResetPlaceCard(sender);
+        }
+
+        private void OnPlaceCardUnloaded(object sender, EventArgs e) => ResetPlaceCard(sender, close: false);
+
+        private void OnPlaceCardContentBindingContextChanged(object sender, EventArgs e)
+        {
+            if (sender is not Grid content) return;
+            content.Margin = Thickness.Zero;
+            if (content.Parent is Border { Parent: SwipeView swipe }) ResetPlaceCard(swipe);
+        }
+
+        private void OnPlacesCollectionScrolled(object sender, ItemsViewScrolledEventArgs e)
+        {
+            foreach (var swipe in _activePlaceSwipes.ToArray()) ResetPlaceCard(swipe);
+        }
+
+        private void ResetPlaceCard(object sender, bool close = true)
+        {
+            if (sender is not SwipeView swipe) return;
+            PlaceSwipeLayout.Reset(swipe, close);
+            _activePlaceSwipes.Remove(swipe);
         }
 
         private void ShowPlaceForm(
@@ -277,8 +379,13 @@ namespace GeoSilence.Pages
 
             SetSelectedMode(place?.Mode ?? ModeType.Silent);
             SetSelectedActivationType(place?.ActivationType ?? ActivationType.Automatic);
+            SetSelectedPlaceType(place?.PlaceType ?? PlaceType.Other);
             SetSelectedVisibility(place?.Visibility ?? PlaceVisibility.Private);
-            PlacesBottomSheet.HeightRequest = BottomSheetCollapsedHeight;
+            _sheetExpanded = false;
+            PlacesBottomSheet.CancelAnimations();
+            _sheetDragOffset = BottomSheetCollapsedTranslation;
+            PlacesBottomSheet.TranslationY = _sheetDragOffset;
+            UpdateMapControlsPosition();
             PlacesBottomSheet.InputTransparent = true;
             PlaceFormOverlay.IsVisible = true;
         }
@@ -301,29 +408,28 @@ namespace GeoSilence.Pages
         {
             _selectedMode = mode;
 
-            // Reset all to light gray background with mode-colored text
-            ModeSilentButton.BackgroundColor = Color.FromArgb("#F9FAFB");
-            ModeSilentButton.TextColor = Color.FromArgb("#DC2626");
-
-            ModeVibrateButton.BackgroundColor = Color.FromArgb("#F9FAFB");
-            ModeVibrateButton.TextColor = Color.FromArgb("#F59E0B");
-
-            ModeNormalButton.BackgroundColor = Color.FromArgb("#F9FAFB");
-            ModeNormalButton.TextColor = Color.FromArgb("#16A34A");
+            var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+            var idle = Color.FromArgb(dark ? "#202028" : "#F5F3FF");
+            ModeSilentButton.BackgroundColor = idle;
+            ModeSilentButton.TextColor = Color.FromArgb("#20A447");
+            ModeVibrateButton.BackgroundColor = idle;
+            ModeVibrateButton.TextColor = Color.FromArgb("#E69208");
+            ModeNormalButton.BackgroundColor = idle;
+            ModeNormalButton.TextColor = Color.FromArgb(dark ? "#B0AFBA" : "#737381");
 
             // Highlight selected mode with its color background and white text
             switch (mode)
             {
                 case ModeType.Silent:
-                    ModeSilentButton.BackgroundColor = Color.FromArgb("#DC2626");
+                    ModeSilentButton.BackgroundColor = Color.FromArgb("#20A447");
                     ModeSilentButton.TextColor = Colors.White;
                     break;
                 case ModeType.Vibrate:
-                    ModeVibrateButton.BackgroundColor = Color.FromArgb("#F59E0B");
+                    ModeVibrateButton.BackgroundColor = Color.FromArgb("#E69208");
                     ModeVibrateButton.TextColor = Colors.White;
                     break;
                 case ModeType.Normal:
-                    ModeNormalButton.BackgroundColor = Color.FromArgb("#16A34A");
+                    ModeNormalButton.BackgroundColor = Color.FromArgb("#737381");
                     ModeNormalButton.TextColor = Colors.White;
                     break;
             }
@@ -347,6 +453,46 @@ namespace GeoSilence.Pages
             _selectedVisibility = visibility;
             VisibilityPrivateRadio.IsChecked = visibility == PlaceVisibility.Private;
             VisibilityPublicRadio.IsChecked = visibility == PlaceVisibility.Public;
+        }
+
+        private void SetSelectedPlaceType(PlaceType placeType)
+        {
+            _selectedPlaceType = placeType;
+            var options = Enum.GetValues<PlaceType>()
+                .Select(type => new PlaceTypeOption
+                {
+                    Value = type,
+                    Icon = type.ToIcon(),
+                    Label = type.ToDisplayName()
+                })
+                .ToList();
+
+            PlaceTypeOptionsList.ItemsSource = options;
+            SelectedPlaceTypeLabel.Text = $"{placeType.ToIcon()} {placeType.ToDisplayName()}";
+            PlaceTypeMenu.IsVisible = false;
+        }
+
+        private void OnPlaceTypeDropdownTapped(object sender, TappedEventArgs e)
+        {
+            PlaceTypeMenu.IsVisible = !PlaceTypeMenu.IsVisible;
+        }
+
+        private void OnPlaceTypeSelected(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.CurrentSelection.FirstOrDefault() is not PlaceTypeOption option)
+                return;
+
+            _selectedPlaceType = option.Value;
+            SelectedPlaceTypeLabel.Text = $"{option.Value.ToIcon()} {option.Value.ToDisplayName()}";
+            PlaceTypeMenu.IsVisible = false;
+            PlaceTypeOptionsList.SelectedItem = null;
+        }
+
+        private sealed class PlaceTypeOption
+        {
+            public PlaceType Value { get; set; }
+            public string Icon { get; set; } = string.Empty;
+            public string Label { get; set; } = string.Empty;
         }
 
         private void OnActivationTypeCheckedChanged(object sender, CheckedChangedEventArgs e)
@@ -452,6 +598,7 @@ namespace GeoSilence.Pages
                     _selectedMode,
                     radius,
                     _selectedActivationType,
+                    _selectedPlaceType,
                     _selectedVisibility);
 
                 ClearSearchState();
@@ -464,6 +611,7 @@ namespace GeoSilence.Pages
                     _selectedMode,
                     radius,
                     _selectedActivationType,
+                    _selectedPlaceType,
                     _selectedVisibility);
             }
 
@@ -486,38 +634,88 @@ namespace GeoSilence.Pages
             switch (e.StatusType)
             {
                 case GestureStatus.Started:
-                    _bottomSheetPanStartHeight = PlacesBottomSheet.HeightRequest;
+                    _isDraggingSheet = true;
+                    PlacesBottomSheet.CancelAnimations();
+                    MapControls.CancelAnimations();
+                    _bottomSheetPanStartTranslation = _sheetDragOffset;
                     break;
 
                 case GestureStatus.Running:
-                    PlacesBottomSheet.HeightRequest = Math.Clamp(
-                        _bottomSheetPanStartHeight - e.TotalY,
-                        BottomSheetCollapsedHeight,
-                        BottomSheetExpandedHeight);
+                    _sheetDragOffset = Math.Clamp(
+                        _bottomSheetPanStartTranslation + e.TotalY,
+                        0,
+                        BottomSheetCollapsedTranslation);
+                    SetDragTranslation(PlacesBottomSheet, _sheetDragOffset);
+                    UpdateMapControlsPosition(useNative: true);
                     break;
 
                 case GestureStatus.Completed:
                 case GestureStatus.Canceled:
-                    PlacesBottomSheet.HeightRequest =
-                        PlacesBottomSheet.HeightRequest >
-                        (BottomSheetCollapsedHeight + BottomSheetExpandedHeight) / 2
-                            ? BottomSheetExpandedHeight
-                            : BottomSheetCollapsedHeight;
+                    _isDraggingSheet = false;
+                    _sheetExpanded = _sheetDragOffset < BottomSheetCollapsedTranslation / 2;
+                    _ = SnapBottomSheetAsync();
                     break;
             }
         }
 
         private void ToggleBottomSheet()
         {
-            PlacesBottomSheet.HeightRequest =
-                PlacesBottomSheet.HeightRequest <= BottomSheetCollapsedHeight
-                    ? BottomSheetExpandedHeight
-                    : BottomSheetCollapsedHeight;
+            _sheetExpanded = !_sheetExpanded;
+            _ = SnapBottomSheetAsync();
+        }
+
+        private async Task SnapBottomSheetAsync()
+        {
+            PlacesBottomSheet.TranslationY = _sheetDragOffset;
+            UpdateMapControlsPosition(useNative: false);
+            var target = _sheetExpanded ? 0 : BottomSheetCollapsedTranslation;
+            var controlsTarget = -Math.Max(0, BottomSheetExpandedHeight - target - BottomSheetCollapsedHeight);
+            await Task.WhenAll(
+                PlacesBottomSheet.TranslateTo(0, target, 180, Easing.CubicOut),
+                MapControls.TranslateTo(0, controlsTarget, 180, Easing.CubicOut));
+            _sheetDragOffset = target;
+        }
+
+        private void UpdateBottomSheetLayout()
+        {
+            if (Height <= 0) return;
+            PlacesBottomSheet.HeightRequest = BottomSheetExpandedHeight;
+            _sheetDragOffset = _sheetExpanded ? 0 : BottomSheetCollapsedTranslation;
+            PlacesBottomSheet.TranslationY = _sheetDragOffset;
+            UpdateMapControlsPosition();
+        }
+
+        private void UpdateMapControlsPosition(bool useNative = false)
+        {
+            var offset = -Math.Max(0, BottomSheetExpandedHeight - _sheetDragOffset - BottomSheetCollapsedHeight);
+            if (useNative) SetDragTranslation(MapControls, offset);
+            else MapControls.TranslationY = offset;
+        }
+
+        private static void SetDragTranslation(VisualElement element, double offset)
+        {
+#if ANDROID
+            if (element.Handler?.PlatformView is Android.Views.View view)
+            {
+                view.TranslationY = (float)(offset * DeviceDisplay.MainDisplayInfo.Density);
+                return;
+            }
+#endif
+            element.TranslationY = offset;
+        }
+
+        private async void OnViewAllClicked(object sender, EventArgs e)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Debug.WriteLine("VIEW ALL tapped");
+            await Shell.Current.GoToAsync(nameof(PlacesPage), false);
+            System.Diagnostics.Debug.WriteLine($"VIEW ALL route completed: {timer.ElapsedMilliseconds} ms");
         }
 
         private async Task SetupMapAsync()
         {
             var loc = await _vm.GetCurrentLocationForMap();
+            if (Shell.Current.CurrentPage != this) return;
 
             if (loc != null)
             {
@@ -549,15 +747,17 @@ namespace GeoSilence.Pages
 
         private void OnPlaceTapped(object sender, TappedEventArgs e)
         {
-            if (sender is not Grid grid ||
-                grid.BindingContext is not Place place)
+            if (sender is not Border card || card.BindingContext is not Place place)
                 return;
 
+            if (card.Parent is SwipeView swipe) ResetPlaceCard(swipe);
             FocusPlaceOnMap(place);
         }
 
         private void FocusPlaceOnMap(Place place)
         {
+            _vm.SelectedPlace = place;
+            UpdateSelectedGeofence();
             var location = new Microsoft.Maui.Devices.Sensors.Location(place.Latitude, place.Longitude);
 
             MainMap.MoveToRegion(
@@ -568,6 +768,21 @@ namespace GeoSilence.Pages
             _focusedPlacePin = MainMap.Pins.FirstOrDefault(pin =>
                 string.Equals(pin.Label, place.Name, StringComparison.Ordinal) &&
                 AreSamePlace(pin.Location, location));
+        }
+
+        private void UpdateSelectedGeofence()
+        {
+            MainMap.MapElements.Clear();
+            var place = _vm.SelectedPlace;
+            if (place == null) return;
+            MainMap.MapElements.Add(new Circle
+            {
+                Center = new Microsoft.Maui.Devices.Sensors.Location(place.Latitude, place.Longitude),
+                Radius = Distance.FromMeters(place.Radius),
+                FillColor = Color.FromArgb("268B5CF6"),
+                StrokeColor = Color.FromArgb("4D7C3AED"),
+                StrokeWidth = 2
+            });
         }
 
         private async void OnAddPlaceFabClicked(object sender, EventArgs e)
@@ -599,7 +814,7 @@ namespace GeoSilence.Pages
             SearchLoadingIndicator.IsVisible = isSearching;
             SearchLoadingIndicator.IsRunning = isSearching;
             PlaceSearchBar.IsEnabled = !isSearching;
-            SearchBarBorder.BackgroundColor = Colors.White;
+            SearchBarBorder.BackgroundColor = Color.FromArgb(Application.Current?.RequestedTheme == AppTheme.Dark ? "#18181E" : "#FFFFFF");
         }
 
         private void CancelSearch()
@@ -636,25 +851,32 @@ namespace GeoSilence.Pages
 
             try
             {
+                var appearanceTimer = System.Diagnostics.Stopwatch.StartNew();
+                var userId = _authenticationService.CurrentUser?.Uid;
                 await _vm.InitializeAsync();
+                System.Diagnostics.Debug.WriteLine($"MAIN local places ready: {appearanceTimer.ElapsedMilliseconds} ms");
 
                 _collectionHandler = OnPlacesChanged;
                 _vm.NearbyPlaces.CollectionChanged += _collectionHandler;
                 _publicCollectionHandler = OnPlacesChanged;
                 _vm.PublicPlaces.CollectionChanged += _publicCollectionHandler;
 
-                await SetupMapAsync();
+                RefreshPins();
+                UpdateBottomSheetLayout();
+                ProcessRouteSelection();
                 UpdateSearchUiState();
                 _accountProfileService.ProfileChanged += OnProfileChanged;
-                await LoadAvatarAsync();
+                _ = LoadAvatarSafelyAsync();
 
-                // Load distances immediately before starting polling loop
-                await _vm.LoadAsync();
-
-                _ = Task.Run(async () =>
+                if (_mapInitializedForUserId != userId)
                 {
-                    await _vm.StartTrackingAsync();
-                });
+                    _mapInitializedForUserId = userId;
+                    _ = InitializeMapAndTrackingAsync();
+                }
+                else
+                {
+                    _ = _vm.StartTrackingAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -664,6 +886,7 @@ namespace GeoSilence.Pages
 
         protected override void OnDisappearing()
         {
+            foreach (var swipe in _activePlaceSwipes.ToArray()) ResetPlaceCard(swipe);
             base.OnDisappearing();
 
             CancelSearch();
@@ -682,11 +905,29 @@ namespace GeoSilence.Pages
             if (sender is not Pin pin)
                 return;
 
-            if (pin.BindingContext is Place publicPlace && publicPlace.Visibility == PlaceVisibility.Public)
+            if (pin.BindingContext is Place ownedPlace && _vm.NearbyPlaces.Contains(ownedPlace))
+            {
+                FocusPlaceOnMap(ownedPlace);
+            }
+            else if (pin.BindingContext is Place publicPlace && publicPlace.Visibility == PlaceVisibility.Public)
             {
                 e.HideInfoWindow = true;
                 await ShowPublicPlaceDetailsAsync(publicPlace);
             }
+        }
+
+        private void ProcessRouteSelection()
+        {
+            var editId = _routeEditId;
+            var id = editId ?? _routeFocusId;
+            if (id == null) return;
+            _routeEditId = null;
+            _routeFocusId = null;
+            var place = _vm.NearbyPlaces.FirstOrDefault(p => p.Id == id.Value);
+            if (place == null) return;
+            FocusPlaceOnMap(place);
+            if (editId != null)
+                ShowPlaceForm(new Microsoft.Maui.Devices.Sensors.Location(place.Latitude, place.Longitude), place.Name, place);
         }
 
         private async Task ShowPublicPlaceDetailsAsync(Place publicPlace)
@@ -725,6 +966,25 @@ namespace GeoSilence.Pages
         private async void OnProfileChanged(object? sender, EventArgs e)
         {
             await MainThread.InvokeOnMainThreadAsync(LoadAvatarAsync);
+        }
+
+        private async Task LoadAvatarSafelyAsync()
+        {
+            try { await LoadAvatarAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"AVATAR LOAD ERROR: {ex}"); }
+        }
+
+        private async Task SetupMapSafelyAsync()
+        {
+            try { await SetupMapAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"MAP SETUP ERROR: {ex}"); }
+        }
+
+        private async Task InitializeMapAndTrackingAsync()
+        {
+            await SetupMapSafelyAsync();
+            if (Shell.Current.CurrentPage == this)
+                await _vm.StartTrackingAsync();
         }
     }
 }

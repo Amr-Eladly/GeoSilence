@@ -21,6 +21,15 @@ namespace GeoSilence
                 });
 
             builder.UseMauiMaps();
+#if ANDROID
+            builder.ConfigureMauiHandlers(handlers =>
+            {
+                handlers.AddHandler<Microsoft.Maui.Controls.Maps.Map, Platforms.Droid.PlaceMapHandler>();
+                Microsoft.Maui.Maps.Handlers.MapHandler.Mapper.ModifyMapping(
+                    nameof(Microsoft.Maui.Maps.IMap.Pins),
+                    (handler, map, _) => Platforms.Droid.PlaceMapHandler.MapPins(handler, map));
+            });
+#endif
 #if DEBUG
             builder.Logging.AddDebug();
 #endif
@@ -41,7 +50,9 @@ namespace GeoSilence
             builder.Services.AddSingleton<PlaceManagerService>();
             builder.Services.AddSingleton<HomeViewModel>();
             builder.Services.AddSingleton<MainPage>();
+            builder.Services.AddTransient<PlacesPage>();
             builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<StartupPage>();
             builder.Services.AddTransient<RegisterPage>();
             builder.Services.AddTransient<AccountPage>();
             builder.Services.AddTransient<ProfilePage>();

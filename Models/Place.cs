@@ -40,15 +40,35 @@ namespace GeoSilence.Models
         private ActivationType activationType = ActivationType.Automatic;
 
         [ObservableProperty]
+        private PlaceType placeType = PlaceType.Other;
+
+        [ObservableProperty]
         private PlaceVisibility visibility = PlaceVisibility.Private;
 
         [ObservableProperty]
         private bool isActive = true;
 
+        [ObservableProperty]
+        private bool isSelected;
+
+        public string TypeIcon => PlaceType.ToIcon();
+        public string PlaceMetadata => $"{DistanceFormatted} away · Radius: {Radius:F0} m";
+        public string ModeLabel => Mode switch
+        {
+            ModeType.Silent => "● Silent",
+            ModeType.Vibrate => "● Vibrate",
+            _ => "● Ring"
+        };
+
+        partial void OnModeChanged(ModeType value) => OnPropertyChanged(nameof(ModeLabel));
+        partial void OnPlaceTypeChanged(PlaceType value) => OnPropertyChanged(nameof(TypeIcon));
+        partial void OnRadiusChanged(double value) => OnPropertyChanged(nameof(PlaceMetadata));
+
         // IMPORTANT
         partial void OnDistanceChanged(double value)
         {
             OnPropertyChanged(nameof(DistanceFormatted));
+            OnPropertyChanged(nameof(PlaceMetadata));
         }
     }
 }

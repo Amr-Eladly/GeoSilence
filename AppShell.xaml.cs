@@ -15,6 +15,7 @@ namespace GeoSilence
             InitializeComponent();
             Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
             Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
+            Routing.RegisterRoute(nameof(PlacesPage), typeof(PlacesPage));
             Routing.RegisterRoute(nameof(ProfilePage), typeof(ProfilePage));
             Routing.RegisterRoute(nameof(LoginOptionsPage), typeof(LoginOptionsPage));
             Routing.RegisterRoute(nameof(ChangePasswordPage), typeof(ChangePasswordPage));
@@ -34,8 +35,11 @@ namespace GeoSilence
 
             _initialized = true;
 
+            var startupTimer = System.Diagnostics.Stopwatch.StartNew();
             await _authenticationService.InitializeAsync();
+            System.Diagnostics.Debug.WriteLine($"STARTUP session restore: {startupTimer.ElapsedMilliseconds} ms");
             await GoToAsync(_authenticationService.IsSignedIn ? "//main" : "//login");
+            System.Diagnostics.Debug.WriteLine($"STARTUP route completed: {startupTimer.ElapsedMilliseconds} ms");
         }
 
         private async void OnAuthStateChanged(object? sender, EventArgs e)

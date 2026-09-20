@@ -254,6 +254,7 @@ namespace GeoSilence.Services
                 Radius = ReadDouble(fields, "radius"),
                 Mode = ReadString(fields, "mode"),
                 ActivationType = ReadOptionalString(fields, "activationType", ActivationType.Automatic.ToString()),
+                PlaceType = ReadOptionalString(fields, "placeType", PlaceType.Other.ToString()),
                 Visibility = ReadOptionalString(fields, "visibility", InferVisibility(document)),
                 Deleted = ReadOptionalBool(fields, "deleted"),
                 CreatedAtUtcMs = ReadTimestamp(fields, "createdAt"),
@@ -294,6 +295,7 @@ namespace GeoSilence.Services
                 ["radius"] = DoubleValue(place.Radius),
                 ["mode"] = StringValue(place.Mode),
                 ["activationType"] = StringValue(place.ActivationType),
+                ["placeType"] = StringValue(place.PlaceType),
                 ["visibility"] = StringValue(place.Visibility),
                 ["deleted"] = BoolValue(place.Deleted),
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
@@ -314,6 +316,7 @@ namespace GeoSilence.Services
                 ["radius"] = DoubleValue(place.Radius),
                 ["mode"] = StringValue(place.Mode),
                 ["activationType"] = StringValue(place.ActivationType),
+                ["placeType"] = StringValue(place.PlaceType),
                 ["createdAt"] = TimestampValue(place.CreatedAtUtcMs),
                 ["updatedAt"] = TimestampValue(place.UpdatedAtUtcMs)
             };

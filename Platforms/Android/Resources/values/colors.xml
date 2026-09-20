@@ -2,5 +2,6 @@
 <resources>
 	<style name="MainTheme" parent="Maui.MainTheme">
 		<item name="android:statusBarColor">#17171a</item>
+		<item name="android:navigationBarColor">#17171a</item>
 	</style>
 </resources>

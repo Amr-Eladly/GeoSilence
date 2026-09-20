@@ -12,6 +12,7 @@ namespace GeoSilence.Services
             await db.CreateTableAsync<PlaceEntity>();
             await EnsureColumnAsync(db, nameof(PlaceEntity.CloudId), "TEXT NOT NULL DEFAULT ''");
             await EnsureColumnAsync(db, nameof(PlaceEntity.ActivationType), $"INTEGER NOT NULL DEFAULT {(int)ActivationType.Automatic}");
+            await EnsureColumnAsync(db, nameof(PlaceEntity.PlaceType), $"INTEGER NOT NULL DEFAULT {(int)PlaceType.Other}");
             await EnsureColumnAsync(db, nameof(PlaceEntity.Visibility), $"INTEGER NOT NULL DEFAULT {(int)PlaceVisibility.Private}");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDeleted), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDirty), "INTEGER NOT NULL DEFAULT 0");
@@ -77,6 +78,12 @@ namespace GeoSilence.Services
                 if (!Enum.IsDefined(typeof(ActivationType), row.ActivationType))
                 {
                     row.ActivationType = (int)ActivationType.Automatic;
+                    changed = true;
+                }
+
+                if (!Enum.IsDefined(typeof(PlaceType), row.PlaceType))
+                {
+                    row.PlaceType = (int)PlaceType.Other;
                     changed = true;
                 }
 

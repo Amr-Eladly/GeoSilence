@@ -24,6 +24,7 @@ namespace GeoSilence.Models
         public int Mode { get; set; }
 
         public int ActivationType { get; set; } = (int)global::GeoSilence.Models.ActivationType.Automatic;
+        public int PlaceType { get; set; } = (int)global::GeoSilence.Models.PlaceType.Other;
         public int Visibility { get; set; } = (int)PlaceVisibility.Private;
         public bool IsDeleted { get; set; }
         public bool IsDirty { get; set; }
