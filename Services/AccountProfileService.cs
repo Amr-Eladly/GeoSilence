@@ -155,7 +155,9 @@ namespace GeoSilence.Services
 
         public async Task UpdateProfilePhotoAsync(bool useCamera)
         {
-            var profile = await EnsureLoadedAsync();
+            var userId = RequireCurrentUser().Uid;
+            if (useCamera && !MediaPicker.Default.IsCaptureSupported)
+                throw new FeatureNotSupportedException("No camera is available on this device.");
             FileResult? file = null;
 
             file = useCamera
@@ -165,34 +167,58 @@ namespace GeoSilence.Services
             if (file == null)
                 return;
 
-            var localPath = GetLocalPhotoPath(profile.Uid);
-            var directory = Path.GetDirectoryName(localPath);
-            if (!string.IsNullOrWhiteSpace(directory))
-                Directory.CreateDirectory(directory);
-
+            // Snapshot the returned camera/picker bytes before any profile loading
+            // or downloading can touch the avatar cache. Upload this exact file.
+            string capturePath;
             await using (var source = await file.OpenReadAsync())
-            await using (var target = File.Create(localPath))
+                capturePath = await ProfilePhotoFiles.CaptureAsync(source, PhotoDirectory);
+            try
             {
-                await source.CopyToAsync(target);
+                var profile = await EnsureLoadedAsync();
+                if (profile.Uid != userId || RequireCurrentUser().Uid != userId)
+                    throw new InvalidOperationException("Your account changed. Please take or choose the photo again.");
+
+                var oldPath = profile.LocalPhotoPath;
+                var oldStoragePath = profile.PhotoStoragePath;
+                var oldUrl = profile.PhotoUrl;
+                var oldUpdatedAt = profile.UpdatedAtUtcMs;
+                var storagePath = oldStoragePath;
+                var photoUrl = oldUrl;
+                if (_firebaseStorageService.IsConfigured)
+                {
+                    // Keep the previous remote photo until the new profile is saved.
+                    var upload = await _firebaseStorageService.UploadProfilePhotoAsync(
+                        profile.Uid, capturePath, file.ContentType ?? "image/jpeg");
+                    storagePath = upload.StoragePath;
+                    photoUrl = upload.PhotoUrl;
+                }
+
+                var localPath = GetLocalPhotoPath(profile.Uid, storagePath);
+                File.Move(capturePath, localPath, overwrite: true);
+                profile.LocalPhotoPath = localPath;
+                profile.PhotoStoragePath = storagePath;
+                profile.PhotoUrl = photoUrl;
+                profile.UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                try { await _firestoreService.UpsertUserProfileAsync(profile); }
+                catch
+                {
+                    profile.LocalPhotoPath = oldPath;
+                    profile.PhotoStoragePath = oldStoragePath;
+                    profile.PhotoUrl = oldUrl;
+                    profile.UpdatedAtUtcMs = oldUpdatedAt;
+                    throw;
+                }
+                ProfileChanged?.Invoke(this, EventArgs.Empty);
+                if (!string.IsNullOrWhiteSpace(oldStoragePath) && oldStoragePath != storagePath)
+                {
+                    try { await _firebaseStorageService.DeleteFileAsync(oldStoragePath); }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"OLD PHOTO CLEANUP: {ex.Message}"); }
+                }
             }
-
-            profile.LocalPhotoPath = localPath;
-
-            if (_firebaseStorageService.IsConfigured)
+            finally
             {
-                var upload = await _firebaseStorageService.UploadProfilePhotoAsync(
-                    profile.Uid,
-                    localPath,
-                    file.ContentType ?? "image/jpeg",
-                    profile.PhotoStoragePath);
-
-                profile.PhotoUrl = upload.PhotoUrl;
-                profile.PhotoStoragePath = upload.StoragePath;
+                if (File.Exists(capturePath)) File.Delete(capturePath);
             }
-
-            profile.UpdatedAtUtcMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            await _firestoreService.UpsertUserProfileAsync(profile);
-            ProfileChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public async Task RemoveProfilePhotoAsync()
@@ -290,7 +316,7 @@ namespace GeoSilence.Services
 
         private async Task<string> ResolveLocalPhotoPathAsync(UserProfile profile)
         {
-            var localPath = GetLocalPhotoPath(profile.Uid);
+            var localPath = GetLocalPhotoPath(profile.Uid, profile.PhotoStoragePath);
             if (File.Exists(localPath))
                 return localPath;
 
@@ -309,10 +335,10 @@ namespace GeoSilence.Services
             return string.Empty;
         }
 
-        private static string GetLocalPhotoPath(string userId)
-        {
-            return Path.Combine(FileSystem.AppDataDirectory, "profile-images", $"{userId}.jpg");
-        }
+        private static string PhotoDirectory => Path.Combine(FileSystem.AppDataDirectory, "profile-images");
+
+        private static string GetLocalPhotoPath(string userId, string? storagePath) =>
+            ProfilePhotoFiles.CachePath(PhotoDirectory, userId, storagePath);
 
         private GeoSilenceUser RequireCurrentUser()
         {

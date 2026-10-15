@@ -1,4 +1,6 @@
-﻿using CommunityToolkit.Maui.Alerts;
+using GeoSilence.Controls;
+using GeoSilence.PageModels;
+using CommunityToolkit.Maui.Alerts;
 using CommunityToolkit.Maui.Core;
 using Font = Microsoft.Maui.Font;
 
@@ -8,14 +10,21 @@ namespace GeoSilence
     {
         private readonly IAuthenticationService _authenticationService;
         private bool _initialized;
+        private readonly IServiceProvider _services;
+        private readonly SemaphoreSlim _sessionRouteGate = new(1, 1);
+        private int _sessionRouteVersion;
+        private bool _preparingPages;
+        private string? _preparedUserId;
+        private StartupPage? _startupPage;
 
-        public AppShell(IAuthenticationService authenticationService)
+        public AppShell(IAuthenticationService authenticationService, IServiceProvider services)
         {
             _authenticationService = authenticationService;
+            _services = services;
             InitializeComponent();
             Routing.RegisterRoute(nameof(RegisterPage), typeof(RegisterPage));
-            Routing.RegisterRoute(nameof(AccountPage), typeof(AccountPage));
-            Routing.RegisterRoute(nameof(PlacesPage), typeof(PlacesPage));
+
+
             Routing.RegisterRoute(nameof(ProfilePage), typeof(ProfilePage));
             Routing.RegisterRoute(nameof(LoginOptionsPage), typeof(LoginOptionsPage));
             Routing.RegisterRoute(nameof(ChangePasswordPage), typeof(ChangePasswordPage));
@@ -35,19 +44,117 @@ namespace GeoSilence
 
             _initialized = true;
 
-            var startupTimer = System.Diagnostics.Stopwatch.StartNew();
-            await _authenticationService.InitializeAsync();
-            System.Diagnostics.Debug.WriteLine($"STARTUP session restore: {startupTimer.ElapsedMilliseconds} ms");
-            await GoToAsync(_authenticationService.IsSignedIn ? "//main" : "//login");
-            System.Diagnostics.Debug.WriteLine($"STARTUP route completed: {startupTimer.ElapsedMilliseconds} ms");
+            await RouteForSessionAsync(restoreSession: true);
         }
 
-        private async void OnAuthStateChanged(object? sender, EventArgs e)
+        private async void OnAuthStateChanged(object? sender, EventArgs e) =>
+            await MainThread.InvokeOnMainThreadAsync(() => RouteForSessionAsync());
+
+        protected override bool OnBackButtonPressed() => _preparingPages || base.OnBackButtonPressed();
+
+        private static T GetPage<T>(ShellContent content) where T : ContentPage
         {
-            await MainThread.InvokeOnMainThreadAsync(async () =>
+            // Shell templates keep their own page cache. Resolve that exact instance;
+            // assigning Content while ContentTemplate is set creates a second, unused page.
+            return (T)((IShellContentController)content).GetOrCreateContent();
+        }
+
+        private StartupPage GetStartupPage()
+        {
+            var page = GetPage<StartupPage>(StartupContent);
+            if (!ReferenceEquals(_startupPage, page))
             {
-                await GoToAsync(_authenticationService.IsSignedIn ? "//main" : "//login");
-            });
+                _startupPage = page;
+                page.RetryRequested += async (_, _) => await RouteForSessionAsync();
+            }
+            return page;
+        }
+
+        private static async Task WaitForFirstLayoutAsync(ContentPage page)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            while (!HasVisibleLayout(page) && timer.ElapsedMilliseconds < 4000)
+                await Task.Delay(25);
+            if (!HasVisibleLayout(page))
+                throw new TimeoutException($"{page.GetType().Name} did not finish its initial layout.");
+            // Native Shell fragments can commit after GoToAsync returns.
+            // Keep the window cover until the destination has rendered.
+            await Task.Delay(150);
+        }
+
+        private static bool HasVisibleLayout(ContentPage page)
+        {
+            if (page.Content?.IsLoaded != true || page.Content.Width <= 0 || page.Content.Height <= 0)
+                return false;
+#if ANDROID
+            return page.Handler?.PlatformView is Android.Views.View view && view.IsAttachedToWindow && view.IsShown;
+#else
+            return true;
+#endif
+        }
+
+        private async Task RouteForSessionAsync(bool restoreSession = false)
+        {
+            var version = ++_sessionRouteVersion;
+            await _sessionRouteGate.WaitAsync();
+            PreparationScreen? loadingScreen = null;
+            try
+            {
+                if (version != _sessionRouteVersion) return;
+                _preparingPages = true;
+                if (restoreSession) await _authenticationService.InitializeAsync();
+                var userId = _authenticationService.CurrentUser?.Uid;
+                if (userId == null)
+                {
+                    _preparedUserId = null;
+                    await GoToAsync("//login", false);
+                    return;
+                }
+                if (_preparedUserId == userId)
+                {
+                    await GoToAsync("//home/map/main", false);
+                    return;
+                }
+
+                loadingScreen = PreparationScreen.TryShow();
+                var startup = GetStartupPage();
+                startup.ShowLoading();
+                await GoToAsync("//startup", false);
+                await WaitForFirstLayoutAsync(startup);
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                await _services.GetRequiredService<HomeViewModel>().InitializeAsync();
+                if (!SessionIsCurrent()) return;
+
+                // Only Map is required before dismissing the startup cover. Shell
+                // creates and caches the other tab pages when the user opens them.
+                // HomeViewModel already refreshes cloud data asynchronously.
+                var map = GetPage<Pages.MainPage>(MapContent);
+                await GoToAsync("//home/map/main", false);
+                await WaitForFirstLayoutAsync(map);
+                if (!SessionIsCurrent()) return;
+
+                _preparedUserId = userId;
+                System.Diagnostics.Debug.WriteLine($"PAGE PREPARATION completed: {timer.ElapsedMilliseconds} ms");
+
+                bool SessionIsCurrent() => version == _sessionRouteVersion &&
+                    _authenticationService.CurrentUser?.Uid == userId;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"PAGE PREPARATION ERROR: {ex}");
+                if (version == _sessionRouteVersion)
+                {
+                    var startup = GetStartupPage();
+                    startup.ShowError();
+                    await GoToAsync("//startup", false);
+                }
+            }
+            finally
+            {
+                loadingScreen?.Dispose();
+                _preparingPages = false;
+                _sessionRouteGate.Release();
+            }
         }
 
         public static async Task DisplaySnackbarAsync(string message)

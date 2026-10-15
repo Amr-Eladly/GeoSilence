@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Models/WeeklySchedule.cs" Link="WeeklySchedule.cs" />
+    <Compile Include="../../Models/ModeType.cs" Link="ModeType.cs" />
+    <Compile Include="../../Models/ActivationType.cs" Link="ActivationType.cs" />
+    <Compile Include="../../Services/WeeklyScheduleSession.cs" Link="WeeklyScheduleSession.cs" />
+  </ItemGroup>
+</Project>

@@ -26,6 +26,8 @@ namespace GeoSilence.Models
         public int ActivationType { get; set; } = (int)global::GeoSilence.Models.ActivationType.Automatic;
         public int PlaceType { get; set; } = (int)global::GeoSilence.Models.PlaceType.Other;
         public int Visibility { get; set; } = (int)PlaceVisibility.Private;
+        // -1 means an older row whose last uploaded visibility is unknown.
+        public int SyncedVisibility { get; set; } = -1;
         public bool IsDeleted { get; set; }
         public bool IsDirty { get; set; }
 

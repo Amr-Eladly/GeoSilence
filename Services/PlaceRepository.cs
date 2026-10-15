@@ -33,7 +33,7 @@ namespace GeoSilence.Services
 
             var entity = new PlaceEntity
             {
-                CloudId = Guid.NewGuid().ToString("N"),
+                CloudId = string.IsNullOrEmpty(place.CloudId) ? Guid.NewGuid().ToString("N") : place.CloudId,
                 Name = place.Name,
                 Latitude = place.Latitude,
                 Longitude = place.Longitude,
@@ -42,6 +42,7 @@ namespace GeoSilence.Services
                 ActivationType = (int)place.ActivationType,
                 PlaceType = (int)place.PlaceType,
                 Visibility = (int)place.Visibility,
+                SyncedVisibility = -1,
                 IsDeleted = false,
                 IsDirty = true,
                 OwnerId = userId,
@@ -174,6 +175,7 @@ namespace GeoSilence.Services
                 Visibility = (PlaceVisibility)entity.Visibility,
                 CloudId = entity.CloudId,
                 OwnerId = entity.OwnerId,
+                IsCloudSyncPending = entity.IsDirty,
                 IsActive = true
             };
         }

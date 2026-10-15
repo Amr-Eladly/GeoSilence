@@ -3,58 +3,139 @@
     x:Class="GeoSilence.Pages.LoginPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:GeoSilence.Controls"
     Shell.NavBarIsVisible="False"
-    BackgroundColor="#F6F7F9">
+    BackgroundColor="{AppThemeBinding Light=#F8F7FC, Dark=#111116}">
+    <ContentPage.Resources>
+        <Style TargetType="controls:SurfaceEntry">
+            <Setter Property="FontFamily"
+                    Value="OpenSansRegular"/>
+            <Setter Property="FontSize"
+                    Value="15"/>
+            <Setter Property="HeightRequest"
+                    Value="52"/>
+            <Setter Property="BackgroundColor"
+                    Value="Transparent"/>
+            <Setter Property="TextColor"
+                    Value="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+            <Setter Property="PlaceholderColor"
+                    Value="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+        </Style>
+        <Style x:Key="InputSurface"
+                TargetType="Border">
+            <Setter Property="Padding"
+                    Value="12,0"/>
+            <Setter Property="StrokeShape"
+                    Value="RoundRectangle 12"/>
+            <Setter Property="Stroke"
+                    Value="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"/>
+            <Setter Property="BackgroundColor"
+                    Value="{AppThemeBinding Light={StaticResource MapInput}, Dark={StaticResource MapInputDark}}"/>
+        </Style>
+    </ContentPage.Resources>
 
-    <Grid Padding="24" RowDefinitions="*,Auto,*">
-        <VerticalStackLayout
-            Grid.Row="1"
-            Spacing="14"
-            MaximumWidthRequest="420"
-            HorizontalOptions="Fill">
-
-            <Label
-                Text="GeoSilence"
-                FontSize="34"
-                FontAttributes="Bold"
-                TextColor="#17171A" />
-
-            <Label
-                Text="Sign in to keep your places backed up."
-                FontSize="15"
-                TextColor="#5C6670" />
-
-            <Border
-                Padding="18"
-                BackgroundColor="White"
-                Stroke="#E4E7EC"
-                StrokeShape="RoundRectangle 8">
-
-                <VerticalStackLayout Spacing="12">
-                    <Entry
-                        x:Name="EmailEntry"
-                        Placeholder="Email"
-                        Keyboard="Email"
-                        ReturnType="Next" />
-
-                    <Entry
-                        x:Name="PasswordEntry"
-                        Placeholder="Password"
-                        IsPassword="True"
-                        ReturnType="Done" />
-
-                    <Button
-                        x:Name="LoginButton"
-                        Text="Login"
-                        Clicked="OnLoginClicked" />
-
-                    <Button
-                        Text="Create account"
-                        Clicked="OnCreateAccountClicked"
-                        BackgroundColor="Transparent"
-                        TextColor="#2563EB" />
+    <ScrollView>
+        <Grid Padding="24,40"
+                VerticalOptions="Center">
+            <VerticalStackLayout Spacing="24"
+                    MaximumWidthRequest="420"
+                    HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="10">
+                    <Border WidthRequest="64"
+                            HeightRequest="64"
+                            HorizontalOptions="Start"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 20"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource MapIconContainer}, Dark={StaticResource MapIconContainerDark}}">
+                        <Image Source="tab_map.svg"
+                                WidthRequest="32"
+                                HeightRequest="32"
+                                SemanticProperties.Description="GeoSilence"/>
+                    </Border>
+                    <Label Text="GeoSilence"
+                            FontSize="30"
+                            FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                    <Label Text="A quieter phone, in the right places."
+                            FontSize="15"
+                           TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
                 </VerticalStackLayout>
-            </Border>
-        </VerticalStackLayout>
-    </Grid>
+
+                <Border Padding="20"
+                        StrokeShape="RoundRectangle 16"
+                        Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}">
+                    <VerticalStackLayout Spacing="18">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Welcome back"
+                                    FontSize="24"
+                                    FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Email"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                            <Border Style="{StaticResource InputSurface}">
+                                <controls:SurfaceEntry x:Name="EmailEntry"
+                                        Placeholder="you@example.com"
+                                        Keyboard="Email"
+                                                       ReturnType="Next"
+                                        Completed="OnEmailCompleted"
+                                        SemanticProperties.Description="Email"/>
+                            </Border>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Password"
+                                    FontSize="13"
+                                    FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                            <Border Style="{StaticResource InputSurface}">
+                                <controls:SurfaceEntry x:Name="PasswordEntry"
+                                        Placeholder="Enter your password"
+                                        IsPassword="True"
+                                                       ReturnType="Go"
+                                        Completed="OnLoginClicked"
+                                        SemanticProperties.Description="Password"/>
+                            </Border>
+                        </VerticalStackLayout>
+                        <Button x:Name="ForgotPasswordButton"
+                                Text="Forgot password?" Clicked="OnForgotPasswordClicked"
+                                HorizontalOptions="End" BackgroundColor="Transparent"
+                                FontSize="14" Padding="8,0" MinimumHeightRequest="44"
+                                TextColor="{AppThemeBinding Light={StaticResource MapPrimary}, Dark={StaticResource MapPrimaryDark}}"/>
+                        <ActivityIndicator x:Name="ResetLoadingIndicator"
+                                           IsVisible="False" IsRunning="False"
+                                           Color="{StaticResource MapPrimary}"
+                                           HeightRequest="24"
+                                           SemanticProperties.Description="Sending password reset email"/>
+                        <Button x:Name="LoginButton"
+                                Text="Sign in"
+                                Clicked="OnLoginClicked"
+                                FontSize="15"
+                                FontAttributes="Bold"
+                                HeightRequest="52"
+                                CornerRadius="14"
+                                BackgroundColor="{StaticResource MapPrimary}"
+                                TextColor="White"/>
+                    </VerticalStackLayout>
+                </Border>
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="New to GeoSilence?"
+                            HorizontalTextAlignment="Center"
+                            FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                    <Button x:Name="CreateAccountButton"
+                            Text="Create account"
+                            Clicked="OnCreateAccountClicked"
+                            BackgroundColor="Transparent"
+                            FontSize="15"
+                            FontAttributes="Bold"
+                            CornerRadius="14"
+                            TextColor="{AppThemeBinding Light={StaticResource MapPrimary}, Dark={StaticResource MapPrimaryDark}}"/>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
 </ContentPage>

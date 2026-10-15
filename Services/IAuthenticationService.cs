@@ -11,6 +11,7 @@ namespace GeoSilence.Services
         Task InitializeAsync();
         Task<GeoSilenceUser> RegisterAsync(string email, string password, string displayName);
         Task<GeoSilenceUser> LoginAsync(string email, string password);
+        Task SendPasswordResetEmailAsync(string email);
         Task LogoutAsync();
         Task<string?> GetIdTokenAsync(bool forceRefresh = false);
     }

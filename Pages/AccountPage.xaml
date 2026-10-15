@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Title="My Account"
-    BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
+    Shell.NavBarIsVisible="False" BackgroundColor="{AppThemeBinding Light=#F6F7FB, Dark=#0F1115}">
 
     <ScrollView>
         <VerticalStackLayout Padding="20,18,20,28" Spacing="18">
@@ -55,18 +55,23 @@
                                 x:Name="EmailLabel"
                                 FontSize="14"
                                 TextColor="{AppThemeBinding Light=#6B7280, Dark=#A7B0C0}" />
-                            <Label
-                                x:Name="LocationsCountLabel"
-                                FontSize="14"
-                                TextColor="{AppThemeBinding Light=#374151, Dark=#D1D5DB}" />
                         </VerticalStackLayout>
                     </Grid>
 
-                    <Button
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Button x:Name="TakePhotoButton"
+                        Text="Take photo"
+                        Clicked="OnTakePhotoClicked"
+                        BackgroundColor="{StaticResource MapPrimary}"
+                        TextColor="White" />
+                    <Button x:Name="PhotoOptionsButton" Grid.Column="1"
                         Text="Edit Photo"
                         Clicked="OnEditPhotoClicked"
                         BackgroundColor="{AppThemeBinding Light=#EEF2FF, Dark=#1E293B}"
                         TextColor="{AppThemeBinding Light=#1D4ED8, Dark=#BFDBFE}" />
+                    </Grid>
+                    <ActivityIndicator x:Name="PhotoActivity" IsVisible="False" IsRunning="False"
+                                       Color="{StaticResource MapPrimary}" HeightRequest="24" />
                 </VerticalStackLayout>
             </Border>
 

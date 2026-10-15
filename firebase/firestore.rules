@@ -10,8 +10,14 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
-    function validProfile() {
-      return request.resource.data.keys().hasOnly([
+    function hasExactFields(data, fields) {
+      return data.keys().hasAll(fields) && data.keys().hasOnly(fields);
+    }
+
+    function validProfile(userId) {
+      let data = request.resource.data;
+
+      return hasExactFields(data, [
         'uid',
         'displayName',
         'email',
@@ -23,18 +29,59 @@ service cloud.firestore {
         'createdAt',
         'updatedAt'
       ])
-      && request.resource.data.uid == request.auth.uid
-      && request.resource.data.displayName is string
-      && request.resource.data.email is string
-      && request.resource.data.firstName is string
-      && request.resource.data.lastName is string
-      && request.resource.data.dateOfBirth is string
-      && request.resource.data.photoUrl is string
-      && request.resource.data.photoStoragePath is string;
+      && data.uid == userId
+      && data.uid == request.auth.uid
+      && data.displayName is string
+      && data.displayName.size() <= 120
+      && data.email is string
+      && data.email.size() > 0
+      && data.email.size() <= 320
+      && data.firstName is string
+      && data.firstName.size() <= 100
+      && data.lastName is string
+      && data.lastName.size() <= 100
+      && data.dateOfBirth is string
+      && data.dateOfBirth.size() <= 10
+      && data.photoUrl is string
+      && data.photoUrl.size() <= 2048
+      && data.photoStoragePath is string
+      && data.photoStoragePath.size() <= 512
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp
+      && data.updatedAt >= data.createdAt;
     }
 
-    function validPrivatePlace(userId) {
-      return request.resource.data.keys().hasOnly([
+    function validPlaceValues(data, placeId, userId) {
+      return data.id == placeId
+      && data.id is string
+      && data.id.size() > 0
+      && data.id.size() <= 128
+      && data.ownerId == userId
+      && data.ownerId == request.auth.uid
+      && data.name is string
+      && data.name.size() > 0
+      && data.name.size() <= 120
+      && data.latitude is number
+      && data.latitude >= -90
+      && data.latitude <= 90
+      && data.longitude is number
+      && data.longitude >= -180
+      && data.longitude <= 180
+      && data.radius is number
+      && data.radius >= 25
+      && data.radius <= 5000
+      && data.mode in ['Silent', 'Vibrate', 'Normal']
+      && data.activationType in ['Automatic', 'ConfirmFirst']
+      && data.placeType in ['Education', 'Religious', 'Work', 'Hospital', 'Other']
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp
+      && data.updatedAt >= data.createdAt;
+    }
+
+    function validPrivatePlace(userId, placeId) {
+      let data = request.resource.data;
+
+      return hasExactFields(data, [
         'id',
         'ownerId',
         'name',
@@ -43,35 +90,24 @@ service cloud.firestore {
         'radius',
         'mode',
         'activationType',
+        'placeType',
         'visibility',
         'deleted',
         'createdAt',
         'updatedAt',
         'version'
       ])
-      && request.resource.data.ownerId == userId
-      && request.resource.data.ownerId == request.auth.uid
-      && request.resource.data.name is string
-      && request.resource.data.name.size() > 0
-      && request.resource.data.name.size() <= 120
-      && request.resource.data.latitude is number
-      && request.resource.data.latitude >= -90
-      && request.resource.data.latitude <= 90
-      && request.resource.data.longitude is number
-      && request.resource.data.longitude >= -180
-      && request.resource.data.longitude <= 180
-      && request.resource.data.radius is number
-      && request.resource.data.radius >= 25
-      && request.resource.data.radius <= 5000
-      && request.resource.data.mode in ['Silent', 'Vibrate', 'Normal']
-      && request.resource.data.activationType in ['Automatic', 'ConfirmFirst']
-      && request.resource.data.visibility in ['Private', 'Public']
-      && request.resource.data.deleted is bool
-      && request.resource.data.version is int;
+      && validPlaceValues(data, placeId, userId)
+      && data.visibility == 'Private'
+      && data.deleted is bool
+      && data.version is int
+      && data.version >= 1;
     }
 
-    function validPublicPlace() {
-      return request.resource.data.keys().hasOnly([
+    function validPublicPlace(placeId) {
+      let data = request.resource.data;
+
+      return hasExactFields(data, [
         'id',
         'ownerId',
         'name',
@@ -80,49 +116,61 @@ service cloud.firestore {
         'radius',
         'mode',
         'activationType',
+        'placeType',
         'createdAt',
         'updatedAt'
       ])
-      && request.resource.data.ownerId == request.auth.uid
-      && request.resource.data.name is string
-      && request.resource.data.name.size() > 0
-      && request.resource.data.name.size() <= 120
-      && request.resource.data.latitude is number
-      && request.resource.data.latitude >= -90
-      && request.resource.data.latitude <= 90
-      && request.resource.data.longitude is number
-      && request.resource.data.longitude >= -180
-      && request.resource.data.longitude <= 180
-      && request.resource.data.radius is number
-      && request.resource.data.radius >= 25
-      && request.resource.data.radius <= 5000
-      && request.resource.data.mode in ['Silent', 'Vibrate', 'Normal']
-      && request.resource.data.activationType in ['Automatic', 'ConfirmFirst'];
+      && validPlaceValues(data, placeId, request.auth.uid);
     }
 
     match /users/{userId} {
-      allow create: if isOwner(userId) && validProfile();
+      allow create: if isOwner(userId) && validProfile(userId);
       allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && validProfile();
+      allow update: if isOwner(userId)
+        && validProfile(userId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt >= resource.data.updatedAt;
       allow delete: if isOwner(userId);
       allow list: if false;
 
       match /places/{placeId} {
         allow get, list: if isOwner(userId);
-        allow create, update: if isOwner(userId) && validPrivatePlace(userId);
-        allow delete: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validPrivatePlace(userId, placeId);
+        allow update: if isOwner(userId)
+          && validPrivatePlace(userId, placeId)
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == resource.data.ownerId
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt >= resource.data.updatedAt
+          && request.resource.data.version >= resource.data.version;
+        allow delete: if isOwner(userId)
+          && resource.data.ownerId == request.auth.uid;
       }
     }
 
     match /publicPlaces/{placeId} {
       allow get, list: if signedIn();
 
-      allow create, update: if signedIn()
-        && request.resource.data.ownerId == request.auth.uid
-        && validPublicPlace();
+      allow create: if signedIn()
+        && validPublicPlace(placeId);
+
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && validPublicPlace(placeId)
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt >= resource.data.updatedAt;
 
       allow delete: if signedIn()
         && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

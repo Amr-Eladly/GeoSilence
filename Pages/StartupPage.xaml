@@ -7,6 +7,12 @@
     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="18">
         <Label Text="GeoSilence" FontSize="28" FontAttributes="Bold" HorizontalTextAlignment="Center"
                TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
-        <ActivityIndicator IsRunning="True" Color="{StaticResource MapPrimary}"/>
+        <ActivityIndicator x:Name="LoadingIndicator" IsRunning="True" Color="{StaticResource MapPrimary}"
+                           HeightRequest="36" WidthRequest="36" HorizontalOptions="Center"/>
+        <Label x:Name="StatusLabel" Text="Getting things ready?" FontSize="15"
+               HorizontalTextAlignment="Center" Margin="24,0"
+               TextColor="{AppThemeBinding Light=#6B7280, Dark=#A1A1AA}"/>
+        <Button x:Name="RetryButton" Text="Try again" IsVisible="False" Clicked="OnRetryClicked"
+                BackgroundColor="{StaticResource MapPrimary}" TextColor="White" CornerRadius="14"/>
     </VerticalStackLayout>
 </ContentPage>

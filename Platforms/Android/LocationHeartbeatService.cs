@@ -32,6 +32,9 @@ namespace GeoSilence
         private IFusedLocationProviderClient? _client;
         private HeartbeatCallback? _callback;
         private bool _started;
+        private bool _foregroundStarted;
+        private HandlerThread? _workerThread;
+        private Handler? _worker;
 
         public override IBinder? OnBind(Intent? intent) => null;
 
@@ -41,6 +44,9 @@ namespace GeoSilence
             GeoLog.Init(this);
             GeoLog.Write("HB", "Service.OnCreate");
             EnsureNotificationChannel();
+            _workerThread = new HandlerThread("GeoSilence.LocationHeartbeat");
+            _workerThread.Start();
+            _worker = new Handler(_workerThread.Looper!);
         }
 
         public override StartCommandResult OnStartCommand(
@@ -51,15 +57,20 @@ namespace GeoSilence
 
             if (action == ActionStop)
             {
-                StopHeartbeat();
+                _worker?.Post(StopHeartbeat);
                 StopForeground(StopForegroundFlags.Remove);
+                _foregroundStarted = false;
                 StopSelf();
                 return StartCommandResult.NotSticky;
             }
 
             try
             {
-                StartForeground(NotificationId, BuildNotification());
+                if (!_foregroundStarted)
+                {
+                    StartForeground(NotificationId, BuildNotification());
+                    _foregroundStarted = true;
+                }
             }
             catch (Exception ex)
             {
@@ -68,14 +79,22 @@ namespace GeoSilence
                 return StartCommandResult.NotSticky;
             }
 
-            StartHeartbeat();
+            // Service callbacks run on the UI thread. Google Play Services
+            // initialization and binder calls must not block that thread.
+            _worker?.Post(StartHeartbeat);
+            GeoLog.Write("HB", "OnStartCommand completed; location work queued");
             return StartCommandResult.Sticky;
         }
 
         public override void OnDestroy()
         {
             GeoLog.Write("HB", "Service.OnDestroy");
-            StopHeartbeat();
+            var workerThread = _workerThread;
+            _worker?.Post(() =>
+            {
+                StopHeartbeat();
+                workerThread?.QuitSafely();
+            });
             base.OnDestroy();
         }
 
@@ -100,7 +119,7 @@ namespace GeoSilence
                 _client.RequestLocationUpdates(
                     request,
                     _callback,
-                    Looper.MainLooper);
+                    Looper.MyLooper());
 
                 _started = true;
                 GeoLog.Write("HB", $"location updates requested every {IntervalMs}ms");

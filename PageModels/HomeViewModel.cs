@@ -1,7 +1,8 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using GeoSilence.Models;
 using GeoSilence.Services;
+using Microsoft.Maui.Networking;
 
 namespace GeoSilence.PageModels
 {
@@ -18,6 +19,9 @@ namespace GeoSilence.PageModels
         private string? _loadedUserId;
         private Task? _backgroundInitialization;
         private int _mutationVersion;
+        private bool _placeListUpdatesDeferred;
+        private List<Place>? _pendingVisiblePlaces;
+        private GeoSilence.Models.Location? _lastKnownLocation;
 
         private CancellationTokenSource? _cts;
 
@@ -82,23 +86,60 @@ namespace GeoSilence.PageModels
             _locationService = locationService;
             _geoService = geoService;
             _modeService = modeService;
+            SessionPlaceSchedules.UseModeService(modeService);
             _backgroundGeofenceService = backgroundGeofenceService;
             _repo = repo;
             _syncService = syncService;
             _cloudPlaceRepository = cloudPlaceRepository;
             _authenticationService = authenticationService;
             _authenticationService.AuthStateChanged += OnAuthStateChanged;
+            Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        }
+
+        private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+        {
+            if (e.NetworkAccess != NetworkAccess.Internet || !_authenticationService.IsSignedIn)
+                return;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _syncService.RetryDirtyPlacesAsync();
+                    var userId = _authenticationService.CurrentUser?.Uid;
+                    if (userId == null) return;
+                    var statuses = await _repo.GetPlacesAsync();
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (_authenticationService.CurrentUser?.Uid != userId) return;
+                        var pendingById = statuses.ToDictionary(p => p.Id,
+                            p => p.IsCloudSyncPending);
+                        foreach (var place in _allPlaces)
+                            if (pendingById.TryGetValue(place.Id, out var pending))
+                            {
+                                place.IsCloudSyncPending = pending;
+                                if (!pending) place.HasCloudSyncError = false;
+                            }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"CLOUD RETRY WARNING: {ex}");
+                }
+            });
         }
 
         private void OnAuthStateChanged(object? sender, EventArgs e)
         {
             if (_authenticationService.IsSignedIn) return;
+            SessionPlaceSchedules.Current.Clear();
             Interlocked.Increment(ref _mutationVersion);
             _loadedUserId = null;
             StopTracking();
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 SelectedPlace = null;
+                _placeListUpdatesDeferred = false;
+                _pendingVisiblePlaces = null;
                 _allPlaces.Clear();
                 UpdateVisiblePlaces([]);
                 PublicPlaces.Clear();
@@ -137,9 +178,8 @@ namespace GeoSilence.PageModels
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         if (Volatile.Read(ref _mutationVersion) != initialMutationVersion) return;
-                        _allPlaces.Clear();
-                        _allPlaces.AddRange(places);
-                        UpdateVisiblePlaces(places);
+                        MergeReloadedPlaces(places);
+                        UpdateVisiblePlaces(_allPlaces);
                     });
                 }
                 var privatePlaces = await MainThread.InvokeOnMainThreadAsync(() => GetPrivatePlaces().ToList());
@@ -192,11 +232,17 @@ namespace GeoSilence.PageModels
             double radius,
             ActivationType activationType,
             PlaceType placeType,
-            PlaceVisibility visibility)
+            PlaceVisibility visibility,
+            Place? publicSource = null,
+            WeeklySchedule? schedule = null)
         {
+            if (publicSource != null && FindSavedPublicPlace(publicSource) != null)
+                throw new InvalidOperationException("This place is already in your places.");
+            var saveTimer = System.Diagnostics.Stopwatch.StartNew();
             Interlocked.Increment(ref _mutationVersion);
             var place = new Place
             {
+                CloudId = publicSource == null ? string.Empty : SavedPublicCloudId(publicSource.CloudId) + "_" + Guid.NewGuid().ToString("N"),
                 Name = name,
                 Latitude = lat,
                 Longitude = lng,
@@ -204,7 +250,7 @@ namespace GeoSilence.PageModels
                 Mode = mode,
                 ActivationType = activationType,
                 PlaceType = placeType,
-                Visibility = visibility,
+                Visibility = publicSource == null ? visibility : PlaceVisibility.Private,
                 IsActive = true
             };
 
@@ -212,23 +258,13 @@ namespace GeoSilence.PageModels
             var entity = await _repo.AddPlaceAsync(place);
             place.Id = entity.Id;
             if (!_allPlaces.Any(existing => existing.Id == place.Id)) _allPlaces.Add(place);
+            SaveSessionSchedule(place, schedule);
 
-            // 2. Update UI immediately with just distance calculation (fast)
-            await LoadAsync();
-
-            // 3. Re-register geofences with the new place (must be done before returning)
-            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
-
-            // 4. Sync now and report explicit failure (local save already succeeded)
-            try
-            {
-                await _syncService.SyncPlaceAsync(entity.Id);
-                await LoadPublicPlacesAsync();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"SYNC PLACE WARNING: {ex.Message}");
-            }
+            place.IsCloudSyncPending = true;
+            place.HasCloudSyncError = false;
+            await RefreshVisiblePlacesAsync();
+            System.Diagnostics.Debug.WriteLine($"SAVE local ready: {saveTimer.ElapsedMilliseconds} ms");
+            QueueSavedPlaceWork(place, geofenceWasPrivate: false);
         }
 
         public async Task UpdatePlace(
@@ -238,58 +274,161 @@ namespace GeoSilence.PageModels
             double radius,
             ActivationType activationType,
             PlaceType placeType,
-            PlaceVisibility visibility)
+            PlaceVisibility visibility,
+            WeeklySchedule? schedule = null)
         {
             Interlocked.Increment(ref _mutationVersion);
+            var geofenceWasPrivate = place.Visibility == PlaceVisibility.Private;
             place.Name = newName;
             place.Mode = newMode;
             place.Radius = radius;
             place.ActivationType = activationType;
             place.PlaceType = placeType;
             place.Visibility = visibility;
+            SaveSessionSchedule(place, schedule);
 
             // 1. Save to DB immediately
             await _repo.UpdatePlaceAsync(place);
 
-            // 2. Update UI immediately
-            await LoadAsync();
+            place.IsCloudSyncPending = true;
+            place.HasCloudSyncError = false;
+            await RefreshVisiblePlacesAsync();
+            QueueSavedPlaceWork(place, geofenceWasPrivate);
+        }
 
-            // 3. Re-register geofences with updated place (must be done before returning)
-            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
+        private void SaveSessionSchedule(Place place, WeeklySchedule? schedule)
+        {
+            if (schedule == null && !SessionPlaceSchedules.Current.HasSchedules) return;
+            foreach (var item in _allPlaces)
+                SessionPlaceSchedules.Current.Observe(SessionPlaceSchedules.Zone(item),
+                    _lastKnownLocation == null ? null : _geoService.IsInside(_lastKnownLocation, item));
+            SessionPlaceSchedules.Current.Set(SessionPlaceSchedules.Zone(place), schedule);
+            _isInZoneSession = false;
+            _activePlaceId = null;
+            _activeMode = null;
+        }
 
-            // 4. Sync now and report explicit failure (local update already succeeded)
+        private async Task RefreshVisiblePlacesAsync()
+        {
+            var location = _lastKnownLocation;
+            var sorted = _allPlaces.OrderBy(place =>
+            {
+                if (location != null)
+                    place.Distance = Microsoft.Maui.Devices.Sensors.Location.CalculateDistance(
+                        location.Latitude, location.Longitude, place.Latitude, place.Longitude,
+                        DistanceUnits.Kilometers) * 1000;
+                return place.Distance;
+            }).ToList();
+            await MainThread.InvokeOnMainThreadAsync(() => UpdateVisiblePlaces(sorted));
+        }
+
+        private void QueueSavedPlaceWork(Place place, bool geofenceWasPrivate)
+        {
+            var userId = place.OwnerId;
+            var placeId = place.Id;
+            var isPrivate = place.Visibility == PlaceVisibility.Private;
+            var remainingPrivateIds = GetPrivatePlaces().Select(p => p.Id).ToArray();
+            var visibilityChanged = geofenceWasPrivate != isPrivate;
+            var geofenceSnapshot = new Place
+            {
+                Id = place.Id,
+                Latitude = place.Latitude,
+                Longitude = place.Longitude,
+                Radius = place.Radius,
+                Name = place.Name,
+                Mode = place.Mode,
+                Visibility = place.Visibility,
+                IsActive = place.IsActive
+            };
+            // Start geofence operations in save order. The service runs its
+            // platform calls on a worker and serializes them internally.
+            _ = UpdateSavedPlaceGeofenceAsync(geofenceSnapshot, geofenceWasPrivate,
+                remainingPrivateIds);
+            _ = Task.Run(() => SyncSavedPlaceAsync(place, placeId, userId, visibilityChanged));
+        }
+
+        private async Task UpdateSavedPlaceGeofenceAsync(Place place, bool wasPrivate,
+            IReadOnlyCollection<int> remainingPrivateIds)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                await _syncService.SyncPlaceAsync(place.Id);
-                await LoadPublicPlacesAsync();
+                if (place.Visibility == PlaceVisibility.Private)
+                    await _backgroundGeofenceService.UpsertPlaceAsync(place);
+                else if (wasPrivate)
+                    await _backgroundGeofenceService.RemovePlaceAsync(place.Id, remainingPrivateIds);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"SYNC UPDATE WARNING: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"GEOFENCE UPDATE WARNING: {ex}");
             }
+            finally
+            {
+                System.Diagnostics.Debug.WriteLine($"SAVE geofence work: {timer.ElapsedMilliseconds} ms");
+            }
+        }
+
+        private async Task SyncSavedPlaceAsync(Place place, int placeId, string userId,
+            bool refreshPublicPlaces)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                if (_authenticationService.CurrentUser?.Uid != userId) return;
+                try
+                {
+                    await _syncService.SyncPlaceAsync(placeId);
+                    var saved = await _repo.GetEntityByIdAsync(placeId);
+                    if (saved?.IsDirty == false)
+                    {
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            place.IsCloudSyncPending = false;
+                            place.HasCloudSyncError = false;
+                        });
+                        if (refreshPublicPlaces || place.Visibility == PlaceVisibility.Public)
+                            await LoadPublicPlacesAsync();
+                    }
+                    System.Diagnostics.Debug.WriteLine($"SAVE cloud work: {timer.ElapsedMilliseconds} ms");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"CLOUD SAVE ATTEMPT {attempt + 1}: {ex}");
+                    if (attempt < 2)
+                        await Task.Delay(TimeSpan.FromSeconds(2 * (attempt + 1)));
+                }
+            }
+            // The SQLite row stays dirty; login/startup sync retries it later.
+            await MainThread.InvokeOnMainThreadAsync(() => place.HasCloudSyncError = true);
         }
 
         public async Task DeletePlace(Place place)
         {
             Interlocked.Increment(ref _mutationVersion);
+            var wasPrivate = place.Visibility == PlaceVisibility.Private;
             // 1. Remove from local list immediately
             _allPlaces.Remove(place);
+            if (SessionPlaceSchedules.Current.HasSchedules) SessionPlaceSchedules.Current.Remove(place.Id);
             if (SelectedPlace?.Id == place.Id) SelectedPlace = null;
 
             // 2. Mark as deleted in DB
             await _repo.DeletePlaceAsync(place.Id);
 
             // 3. Update UI immediately
-            await LoadAsync();
+            await RefreshVisiblePlacesAsync();
 
-            // 4. Re-register geofences without the deleted place (must be done before returning)
-            await _backgroundGeofenceService.RegisterPlacesAsync(GetPrivatePlaces());
+            // 4. Only the removed private place needs a geofence change.
+            if (wasPrivate)
+                await _backgroundGeofenceService.RemovePlaceAsync(place.Id,
+                    GetPrivatePlaces().Select(p => p.Id).ToArray());
 
             // 5. Sync now and report explicit failure (local delete already succeeded)
             try
             {
                 await _syncService.SyncDeleteAsync(place.Id);
-                await LoadPublicPlacesAsync();
+                if (!wasPrivate)
+                    await LoadPublicPlacesAsync();
             }
             catch (Exception ex)
             {
@@ -310,12 +449,27 @@ namespace GeoSilence.PageModels
                 publicPlace.Radius,
                 ActivationType.Automatic,
                 publicPlace.PlaceType,
-                PlaceVisibility.Private);
+                PlaceVisibility.Private, publicPlace);
+        }
+
+        // A personal document has its own identity, stable across cloud restores,
+        // without modifying the shared document or requiring a new cloud schema.
+        private static string SavedPublicCloudId(string sourceId) => "saved_" +
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(sourceId))).ToLowerInvariant();
+
+        public Place? FindSavedPublicPlace(Place source)
+        {
+            var prefix = SavedPublicCloudId(source.CloudId) + "_";
+            return _allPlaces.FirstOrDefault(place =>
+                place.CloudId == source.CloudId || place.CloudId.StartsWith(prefix, StringComparison.Ordinal));
         }
 
         public async Task LoadAsync()
         {
             var location = await _locationService.GetCurrentLocationAsync();
+            if (location != null)
+                _lastKnownLocation = location;
 
 
             var sorted = _allPlaces
@@ -335,16 +489,6 @@ namespace GeoSilence.PageModels
 
             if (location != null) UpdateModeForLocation(location, sorted);
 
-            bool isSame =
-                NearbyPlaces.Count == sorted.Count &&
-                NearbyPlaces.Select(p => p.Id).SequenceEqual(sorted.Select(p => p.Id));
-
-            if (isSame)
-            {
-                MainThread.BeginInvokeOnMainThread(() => IsLoading = false);
-                return;
-            }
-
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 UpdateVisiblePlaces(sorted);
@@ -352,25 +496,88 @@ namespace GeoSilence.PageModels
             });
         }
 
+        public event EventHandler? VisiblePlacesUpdated;
+
+        public void SetPlaceListUpdatesDeferred(bool deferred)
+        {
+            _placeListUpdatesDeferred = deferred;
+            if (!deferred && _pendingVisiblePlaces != null)
+            {
+                var latest = _pendingVisiblePlaces;
+                _pendingVisiblePlaces = null;
+                UpdateVisiblePlaces(latest);
+            }
+        }
+
         private void UpdateVisiblePlaces(IEnumerable<Place> places)
         {
-            NearbyPlaces.Clear();
-            ClosestPlaces.Clear();
-            foreach (var place in places)
+            var desired = places.ToList();
+            if (_placeListUpdatesDeferred)
             {
-                NearbyPlaces.Add(place);
-                if (ClosestPlaces.Count < 3) ClosestPlaces.Add(place);
+                // Coalesce updates during a gesture; only the latest order matters.
+                _pendingVisiblePlaces = desired;
+                return;
             }
-            OnPropertyChanged(nameof(SavedPlacesCount));
-            OnPropertyChanged(nameof(SavedPlacesSummary));
-            OnPropertyChanged(nameof(HasMorePlaces));
-            OnPropertyChanged(nameof(ShowEmptyState));
+
+            var previousCount = NearbyPlaces.Count;
+            GeoSilence.Controls.CollectionReconciler.Apply(NearbyPlaces, desired);
+            GeoSilence.Controls.CollectionReconciler.Apply(ClosestPlaces, desired.Take(3).ToList());
+            VisiblePlacesUpdated?.Invoke(this, EventArgs.Empty);
+            if (previousCount != NearbyPlaces.Count)
+            {
+                OnPropertyChanged(nameof(SavedPlacesCount));
+                OnPropertyChanged(nameof(SavedPlacesSummary));
+                OnPropertyChanged(nameof(HasMorePlaces));
+                OnPropertyChanged(nameof(ShowEmptyState));
+            }
+        }
+
+        private void MergeReloadedPlaces(IEnumerable<Place> reloaded)
+        {
+            // Repository reloads create new objects. Keep the instances bound to cards
+            // and update their observable properties instead of rebuilding those cards.
+            var existing = _allPlaces.ToDictionary(p => (p.OwnerId, p.Id));
+            var merged = new List<Place>();
+            foreach (var incoming in reloaded)
+            {
+                if (!existing.TryGetValue((incoming.OwnerId, incoming.Id), out var place))
+                {
+                    merged.Add(incoming);
+                    continue;
+                }
+                place.CloudId = incoming.CloudId;
+                place.Name = incoming.Name;
+                place.Latitude = incoming.Latitude;
+                place.Longitude = incoming.Longitude;
+                place.Radius = incoming.Radius;
+                place.Mode = incoming.Mode;
+                place.ActivationType = incoming.ActivationType;
+                place.PlaceType = incoming.PlaceType;
+                place.Visibility = incoming.Visibility;
+                place.IsActive = incoming.IsActive;
+                place.IsCloudSyncPending = incoming.IsCloudSyncPending;
+                if (!incoming.IsCloudSyncPending) place.HasCloudSyncError = false;
+                merged.Add(place);
+            }
+            _allPlaces.Clear();
+            _allPlaces.AddRange(merged);
+            if (SelectedPlace != null && !merged.Contains(SelectedPlace)) SelectedPlace = null;
         }
 
         private void UpdateModeForLocation(
             GeoSilence.Models.Location location,
             List<Place> sorted)
         {
+            if (SessionPlaceSchedules.Current.HasSchedules)
+            {
+                foreach (var place in sorted)
+                    SessionPlaceSchedules.Current.Observe(SessionPlaceSchedules.Zone(place), _geoService.IsInside(location, place));
+                SessionPlaceSchedules.Current.Evaluate();
+                _isInZoneSession = false;
+                _activePlaceId = null;
+                _activeMode = null;
+                return;
+            }
             var activePlace = sorted
                 .Where(place => place.IsActive &&
                                 place.Visibility == PlaceVisibility.Private &&
@@ -418,8 +625,13 @@ namespace GeoSilence.PageModels
             return _allPlaces.Where(place => place.Visibility == PlaceVisibility.Private);
         }
 
-        private async Task LoadPublicPlacesAsync()
+        public IEnumerable<Place> GetExplorePlaces() => PublicPlaces.Where(place =>
+            !string.Equals(place.OwnerId, _authenticationService.CurrentUser?.Uid, StringComparison.Ordinal) &&
+            FindSavedPublicPlace(place) == null);
+
+        public async Task<string?> LoadPublicPlacesAsync()
         {
+            var userId = _authenticationService.CurrentUser?.Uid;
             List<Place> mapped;
 
             try
@@ -447,15 +659,17 @@ namespace GeoSilence.PageModels
             catch (Exception ex)
             {
                 Console.WriteLine($"PUBLIC PLACES LOAD WARNING: {ex.Message}");
-                mapped = new List<Place>();
+                return ex.Message;
             }
 
-            MainThread.BeginInvokeOnMainThread(() =>
+            await MainThread.InvokeOnMainThreadAsync(() =>
             {
+                if (_authenticationService.CurrentUser?.Uid != userId) return;
                 PublicPlaces.Clear();
                 foreach (var place in mapped)
                     PublicPlaces.Add(place);
             });
+            return null;
         }
 
         private static ModeType ParseMode(string value)

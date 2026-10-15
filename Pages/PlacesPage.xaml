@@ -4,16 +4,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:models="clr-namespace:GeoSilence.Models"
              Title="Places"
-             BackgroundColor="{AppThemeBinding Light=#F8F7FC, Dark=#111116}">
-    <Grid RowDefinitions="Auto,*" Padding="16,12">
-        <VerticalStackLayout Spacing="2" Margin="4,0,4,14">
-            <Label Text="All places" FontSize="27" FontAttributes="Bold"
-                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
-            <Label Text="{Binding SavedPlacesSummary}" FontSize="14"
-                   TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
-        </VerticalStackLayout>
-        <Grid Grid.Row="1">
+             Shell.NavBarIsVisible="False" BackgroundColor="{AppThemeBinding Light=#F8F7FC, Dark=#111116}">
+    <ContentPage.Resources>
+        <!-- Build the expensive native list only after the loading view appears. -->
+        <DataTemplate x:Key="PlacesListTemplate">
+        <Grid>
             <CollectionView ItemsSource="{Binding NearbyPlaces}" SelectionMode="None"
+                            ItemSizingStrategy="MeasureFirstItem"
                             Scrolled="OnPlacesCollectionScrolled">
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:Place">
@@ -66,6 +63,29 @@
                 <Label Text="Go back to the map to add one." FontSize="13" HorizontalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
             </VerticalStackLayout>
+        </Grid>
+        </DataTemplate>
+    </ContentPage.Resources>
+    <Grid RowDefinitions="Auto,*" Padding="16,12">
+        <VerticalStackLayout Spacing="2" Margin="4,0,4,14">
+            <Label Text="All places" FontSize="27" FontAttributes="Bold"
+                   TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+            <Label Text="{Binding SavedPlacesSummary}" FontSize="14"
+                   TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+        </VerticalStackLayout>
+        <Grid Grid.Row="1">
+            <ContentView x:Name="PlacesListHost" />
+            <Grid x:Name="PlacesLoadingPanel"
+                  BackgroundColor="{AppThemeBinding Light=#F8F7FC, Dark=#111116}">
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12">
+                    <ActivityIndicator x:Name="PlacesLoadingIndicator" IsRunning="True"
+                                       Color="{StaticResource MapPrimary}" HeightRequest="36" WidthRequest="36" />
+                    <Label x:Name="PlacesLoadingLabel" Text="Loading your places…"
+                           TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}" />
+                    <Button x:Name="PlacesRetryButton" Text="Try again" IsVisible="False"
+                            Clicked="OnRetryPlacesClicked" BackgroundColor="{StaticResource MapPrimary}" TextColor="White" />
+                </VerticalStackLayout>
+            </Grid>
         </Grid>
     </Grid>
 </ContentPage>

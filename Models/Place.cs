@@ -51,8 +51,17 @@ namespace GeoSilence.Models
         [ObservableProperty]
         private bool isSelected;
 
+        [ObservableProperty]
+        private bool isCloudSyncPending;
+
+        [ObservableProperty]
+        private bool hasCloudSyncError;
+
         public string TypeIcon => PlaceType.ToIcon();
-        public string PlaceMetadata => $"{DistanceFormatted} away · Radius: {Radius:F0} m";
+        public string PlaceMetadata =>
+            (HasCloudSyncError ? "Backup waiting · " :
+                IsCloudSyncPending ? "Backup pending · " : string.Empty) +
+            $"{DistanceFormatted} away · Radius: {Radius:F0} m";
         public string ModeLabel => Mode switch
         {
             ModeType.Silent => "● Silent",
@@ -63,6 +72,8 @@ namespace GeoSilence.Models
         partial void OnModeChanged(ModeType value) => OnPropertyChanged(nameof(ModeLabel));
         partial void OnPlaceTypeChanged(PlaceType value) => OnPropertyChanged(nameof(TypeIcon));
         partial void OnRadiusChanged(double value) => OnPropertyChanged(nameof(PlaceMetadata));
+        partial void OnIsCloudSyncPendingChanged(bool value) => OnPropertyChanged(nameof(PlaceMetadata));
+        partial void OnHasCloudSyncErrorChanged(bool value) => OnPropertyChanged(nameof(PlaceMetadata));
 
         // IMPORTANT
         partial void OnDistanceChanged(double value)

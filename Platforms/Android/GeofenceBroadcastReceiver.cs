@@ -136,6 +136,13 @@ namespace GeoSilence
                 GeoLog.Write("RX", $"dropped stale activeIds=[{string.Join(",", stale)}]; now [{string.Join(",", activeIds)}]");
             }
 
+            if (SessionPlaceSchedules.Current.HasSchedules)
+            {
+                SessionPlaceSchedules.ObserveGeofence(places, triggeredIds,
+                    transition == Geofence.GeofenceTransitionEnter);
+                return;
+            }
+
             var modeService = new ModeService();
 
             if (transition == Geofence.GeofenceTransitionEnter)

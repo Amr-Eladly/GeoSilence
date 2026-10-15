@@ -8,6 +8,9 @@ public partial class PlacesPage : ContentPage
 {
     private readonly HomeViewModel _vm;
     private readonly HashSet<SwipeView> _activePlaceSwipes = new();
+    private View? _cachedList;
+    private bool _listReady;
+    private int _appearanceVersion;
 
     public PlacesPage(HomeViewModel vm)
     {
@@ -16,14 +19,62 @@ public partial class PlacesPage : ContentPage
         System.Diagnostics.Debug.WriteLine("PLACES page constructed");
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         System.Diagnostics.Debug.WriteLine("PLACES page appeared");
+        await PrepareListAsync(++_appearanceVersion);
     }
+
+    private async Task PrepareListAsync(int version)
+    {
+        if (_listReady) return;
+        PlacesLoadingPanel.IsVisible = true;
+        PlacesLoadingIndicator.IsRunning = true;
+        PlacesLoadingLabel.Text = "Loading your places…";
+        PlacesRetryButton.IsVisible = false;
+        try
+        {
+            // Yield a frame so the lightweight page/loading indicator can appear.
+            await Task.Delay(50);
+            if (version != _appearanceVersion) return;
+            await _vm.InitializeAsync();
+            if (version != _appearanceVersion) return;
+            _cachedList ??= (View)((DataTemplate)Resources["PlacesListTemplate"]).CreateContent();
+            if (PlacesListHost.Content != _cachedList) PlacesListHost.Content = _cachedList;
+
+            // Keep the cover until the retained list has its initial native layout.
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            while (!_cachedList.IsLoaded || _cachedList.Width <= 0 || _cachedList.Height <= 0)
+            {
+                if (version != _appearanceVersion) return;
+                if (timer.Elapsed > TimeSpan.FromSeconds(10))
+                    throw new TimeoutException("The places list did not finish loading.");
+                await Task.Delay(25);
+            }
+            await Task.Delay(50);
+            if (version != _appearanceVersion) return;
+            _listReady = true;
+            PlacesLoadingPanel.IsVisible = PlacesLoadingIndicator.IsRunning = false;
+            System.Diagnostics.Debug.WriteLine("PLACES list prepared and retained");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"PLACES LOAD: {ex}");
+            if (version != _appearanceVersion) return;
+            PlacesLoadingIndicator.IsRunning = false;
+            PlacesLoadingLabel.Text = "Couldn't load your places. Please try again.";
+            PlacesRetryButton.IsVisible = true;
+        }
+    }
+
+    private async void OnRetryPlacesClicked(object sender, EventArgs e) =>
+        await PrepareListAsync(++_appearanceVersion);
 
     protected override void OnDisappearing()
     {
+        ++_appearanceVersion;
+        PlacesLoadingIndicator.IsRunning = false;
         foreach (var swipe in _activePlaceSwipes.ToArray()) ResetPlaceCard(swipe);
         base.OnDisappearing();
     }
@@ -33,7 +84,7 @@ public partial class PlacesPage : ContentPage
         if (sender is Border { BindingContext: Place place })
         {
             if (sender is Border { Parent: SwipeView swipe }) ResetPlaceCard(swipe);
-            await Shell.Current.GoToAsync($"..?focusPlaceId={place.Id}");
+            await Shell.Current.GoToAsync($"//home/map/main?focusPlaceId={place.Id}");
         }
     }
 
@@ -42,7 +93,7 @@ public partial class PlacesPage : ContentPage
         if (sender is SwipeItemView { CommandParameter: SwipeView swipe } && swipe.BindingContext is Place place)
         {
             ResetPlaceCard(swipe);
-            await Shell.Current.GoToAsync($"..?editPlaceId={place.Id}");
+            await Shell.Current.GoToAsync($"//home/map/main?editPlaceId={place.Id}");
         }
     }
 

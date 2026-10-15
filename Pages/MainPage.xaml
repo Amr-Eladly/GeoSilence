@@ -1,11 +1,12 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pageModels="clr-namespace:GeoSilence.PageModels"
-    xmlns:maps="clr-namespace:Microsoft.Maui.Controls.Maps;assembly=Microsoft.Maui.Controls.Maps"
+    xmlns:controls="clr-namespace:GeoSilence.Controls"
     xmlns:conv="clr-namespace:GeoSilence.Converters"
     xmlns:models="clr-namespace:GeoSilence.Models"
+    xmlns:services="clr-namespace:GeoSilence.Services"
     x:Class="GeoSilence.Pages.MainPage"
     Shell.NavBarIsVisible="False">
 
@@ -18,30 +19,31 @@
     <Grid>
 
         <!-- MAP (background) -->
-        <maps:Map
+        <controls:PlaceMap
             x:Name="MainMap"
             IsShowingUser="True"
-            MapClicked="OnMapClicked"/>
+            PropertyChanged="OnMapViewportChanged"
+            MapLongPressed="OnMapLongPressed"/>
 
         <Grid
             x:Name="SearchPanel"
-            ColumnDefinitions="*,Auto"
-            ColumnSpacing="10"
+            RowDefinitions="Auto,Auto,Auto,Auto"
+            RowSpacing="6"
             Margin="14,12,14,0"
-            HeightRequest="56"
             VerticalOptions="Start"
-            ZIndex="2">
+            ZIndex="4">
 
             <Border
                 x:Name="SearchBarBorder"
-                Grid.ColumnSpan="2"
-                BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 28"
+                Grid.Row="0"
+                Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 16"
                 HeightRequest="56"
                 Shadow="0,2,8,#19000000">
-                <Grid ColumnDefinitions="*,Auto,Auto">
-                    <SearchBar
+                <Grid ColumnDefinitions="*,Auto">
+                    <controls:SurfaceSearchBar
                         x:Name="PlaceSearchBar"
                         Placeholder="Search places..."
                         SearchButtonPressed="OnSearchSubmitted"
@@ -50,7 +52,8 @@
                         TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"
                         PlaceholderColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
                         CancelButtonColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"
-                        FontSize="14"
+                        FontFamily="OpenSansRegular"
+                        FontSize="15"
                         HorizontalOptions="Fill"
                         Margin="4,0,0,0"
                         HeightRequest="56"/>
@@ -65,34 +68,56 @@
                         VerticalOptions="Center"
                         HorizontalOptions="Center"
                         Color="{StaticResource MapPrimary}"/>
-                    <Border
-                        Grid.Column="2"
-                        x:Name="AccountAvatarBorder"
-                        WidthRequest="38"
-                        HeightRequest="38"
-                        Margin="0,5,6,5"
-                        Padding="0"
-                        Background="{StaticResource MapPrimary}"
-                        StrokeThickness="0"
-                        StrokeShape="RoundRectangle 19">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnAccountAvatarTapped"/>
-                        </Border.GestureRecognizers>
-                        <Grid>
-                            <Image
-                                x:Name="AccountAvatarImage"
-                                IsVisible="False"
-                                Aspect="AspectFill"/>
-                            <Label
-                                x:Name="AccountAvatarInitialsLabel"
-                                HorizontalOptions="Center"
-                                VerticalOptions="Center"
-                                FontSize="14"
-                                FontAttributes="Bold"
-                                TextColor="White"/>
-                        </Grid>
-                    </Border>
+
                 </Grid>
+            </Border>
+
+            <Border Grid.Row="1" HorizontalOptions="Center" Padding="4"
+                    Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                    StrokeThickness="0" StrokeShape="RoundRectangle 22">
+                <HorizontalStackLayout Spacing="4">
+                    <Button x:Name="MyPlacesModeButton" Text="My places" Clicked="OnMyPlacesModeClicked"
+                            FontSize="13" Padding="16,6" CornerRadius="18" HeightRequest="40"
+                            BackgroundColor="{StaticResource MapPrimary}" TextColor="White"/>
+                    <Button x:Name="ExploreModeButton" Text="Explore" Clicked="OnExploreModeClicked"
+                            FontSize="13" Padding="16,6" CornerRadius="18" HeightRequest="40"
+                            BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                </HorizontalStackLayout>
+            </Border>
+            <ActivityIndicator x:Name="ExploreLoading" Grid.Row="3"
+                               IsVisible="False" IsRunning="False"
+                               Color="#0F766E" WidthRequest="36" HeightRequest="36"
+                               HorizontalOptions="Center"
+                               SemanticProperties.Description="Loading public places"/>
+            <Border
+                x:Name="SearchSuggestionsPanel"
+                Grid.Row="2"
+                IsVisible="False"
+                BackgroundColor="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource MapOutline}, Dark={StaticResource MapOutlineDark}}"
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 16"
+                Shadow="0,3,12,#26000000">
+                <ScrollView MaximumHeightRequest="300">
+                    <VerticalStackLayout
+                        x:Name="SearchSuggestionsList"
+                        BindableLayout.ItemsSource="{Binding Source={x:Reference SearchSuggestionsPanel}, Path=BindingContext}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="services:PlaceSuggestion">
+                                <Grid Padding="16,11" RowDefinitions="Auto,Auto" RowSpacing="2">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnSuggestionTapped"/>
+                                    </Grid.GestureRecognizers>
+                                    <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
+                                    <Label Grid.Row="1" Text="{Binding Description}" FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </ScrollView>
             </Border>
 
         </Grid>
@@ -125,10 +150,12 @@
             Padding="18,10,18,18"
             Background="{AppThemeBinding Light={StaticResource MapSurface}, Dark={StaticResource MapSurfaceDark}}"
             StrokeThickness="0"
-            StrokeShape="RoundRectangle 28"
             HeightRequest="104"
             VerticalOptions="End"
             ZIndex="3">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="28,28,0,0" />
+            </Border.StrokeShape>
             <Grid RowDefinitions="Auto,*" RowSpacing="12">
                 <Grid x:Name="SheetHeader" RowDefinitions="Auto,Auto" RowSpacing="12">
                     <Grid.GestureRecognizers>
@@ -137,17 +164,14 @@
                     </Grid.GestureRecognizers>
                     <BoxView WidthRequest="40" HeightRequest="4" CornerRadius="2"
                              BackgroundColor="#C8C8CE" HorizontalOptions="Center"/>
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <VerticalStackLayout Spacing="0">
                             <Label Text="Places" FontSize="27" FontAttributes="Bold"
                                    TextColor="{AppThemeBinding Light={StaticResource MapText}, Dark={StaticResource MapTextDark}}"/>
                             <Label Text="{Binding SavedPlacesSummary}" FontSize="14"
                                    TextColor="{AppThemeBinding Light={StaticResource MapSecondaryText}, Dark={StaticResource MapSecondaryTextDark}}"/>
                         </VerticalStackLayout>
-                        <Button Grid.Column="1" Text="View all" Clicked="OnViewAllClicked"
-                                BackgroundColor="Transparent" FontSize="13" Padding="4,8"
-                                TextColor="{AppThemeBinding Light={StaticResource MapPrimary}, Dark={StaticResource MapPrimaryDark}}"/>
-                        <Button Grid.Column="2" Text="+ Add Place" Clicked="OnAddPlaceFabClicked"
+                        <Button x:Name="AddPlaceButton" Grid.Column="1" Text="+ Add Place" Clicked="OnAddPlaceFabClicked"
                                 BackgroundColor="{StaticResource MapPrimary}" TextColor="White"
                                 FontSize="14" CornerRadius="22" Padding="12,8"/>
                     </Grid>
@@ -464,6 +488,8 @@
                             </Border>
                         </Grid>
                     </VerticalStackLayout>
+
+                    <controls:WeeklyScheduleEditor x:Name="PlaceScheduleEditor" />
 
                     <Grid ColumnDefinitions="*,*"
                           ColumnSpacing="10">

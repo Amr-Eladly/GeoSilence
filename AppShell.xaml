@@ -3,19 +3,21 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:pages="clr-namespace:GeoSilence.Pages"
-    FlyoutBehavior="Disabled">
-
-    <ShellContent
-        Route="startup"
-        ContentTemplate="{DataTemplate pages:StartupPage}" />
-
-    <ShellContent
-        Route="login"
-        ContentTemplate="{DataTemplate pages:LoginPage}" />
-
-    <ShellContent
-        Route="main"
-        Title="Dashboard"
-        ContentTemplate="{DataTemplate pages:MainPage}" />
-
+    FlyoutBehavior="Disabled"
+    Shell.TabBarBackgroundColor="{AppThemeBinding Light=White, Dark=#18181E}"
+    Shell.TabBarForegroundColor="#7C3AED"
+    Shell.TabBarUnselectedColor="{AppThemeBinding Light=#6B7280, Dark=#A1A1AA}">
+    <ShellContent x:Name="StartupContent" Route="startup" Shell.TabBarIsVisible="False" ContentTemplate="{DataTemplate pages:StartupPage}" />
+    <ShellContent Route="login" Shell.TabBarIsVisible="False" ContentTemplate="{DataTemplate pages:LoginPage}" />
+    <TabBar Route="home">
+        <Tab Title="Map" Route="map" Icon="tab_map.svg">
+            <ShellContent x:Name="MapContent" Route="main" ContentTemplate="{DataTemplate pages:MainPage}" />
+        </Tab>
+        <Tab Title="Places" Route="places" Icon="tab_places.svg">
+            <ShellContent x:Name="PlacesContent" Route="list" ContentTemplate="{DataTemplate pages:PlacesPage}" />
+        </Tab>
+        <Tab Title="Account" Route="account" Icon="tab_account.svg">
+            <ShellContent x:Name="AccountContent" Route="overview" ContentTemplate="{DataTemplate pages:AccountPage}" />
+        </Tab>
+    </TabBar>
 </Shell>

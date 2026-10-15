@@ -125,6 +125,39 @@ namespace GeoSilence.Services
             return await SaveSessionAsync(response, response.DisplayName ?? string.Empty);
         }
 
+        public async Task SendPasswordResetEmailAsync(string email)
+        {
+            email = email?.Trim() ?? string.Empty;
+            if (!System.Net.Mail.MailAddress.TryCreate(email, out var address) ||
+                !string.Equals(address.Address, email, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Enter a valid email address.", nameof(email));
+
+            EnsureConfigured();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var response = await _httpClient.PostAsJsonAsync(
+                $"{IdentityBaseUrl}/accounts:sendOobCode?key={FirebaseConfig.ApiKey}",
+                new { requestType = "PASSWORD_RESET", email }, JsonOptions(), timeout.Token);
+            if (response.IsSuccessStatusCode) return;
+
+            var json = await response.Content.ReadAsStringAsync(timeout.Token);
+            string? code = null;
+            try
+            {
+                code = JsonSerializer.Deserialize<FirebaseErrorResponse>(json, JsonOptions())?.Error?.Message;
+            }
+            catch (JsonException) { }
+
+            // Give the same result for unknown emails, including projects without enumeration protection.
+            if (code == "EMAIL_NOT_FOUND") return;
+            throw new InvalidOperationException(code switch
+            {
+                "INVALID_EMAIL" => "Enter a valid email address.",
+                "TOO_MANY_ATTEMPTS_TRY_LATER" or "RESET_PASSWORD_EXCEED_LIMIT" or "QUOTA_EXCEEDED"
+                    => "Too many reset requests. Please try again later.",
+                _ => "We couldn't send the reset email. Please try again later."
+            });
+        }
+
         public async Task LogoutAsync()
         {
             await ClearSessionInternalAsync();
@@ -290,7 +323,8 @@ namespace GeoSilence.Services
         private sealed record RefreshTokenResponse(
             [property: JsonPropertyName("id_token")] string IdToken,
             [property: JsonPropertyName("refresh_token")] string RefreshToken,
-            [property: JsonPropertyName("expires_in")] int ExpiresIn);
+            [property: JsonPropertyName("expires_in")]
+            [property: JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)] int ExpiresIn);
 
         private sealed record FirebaseErrorResponse(
             [property: JsonPropertyName("error")] FirebaseError? Error);

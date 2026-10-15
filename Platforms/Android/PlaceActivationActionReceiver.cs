@@ -26,6 +26,13 @@ namespace GeoSilence
 
             PlaceActivationNotificationService.CancelActivationRequest(context, placeId);
 
+            if (SessionPlaceSchedules.Current.HasSchedules)
+            {
+                SessionPlaceSchedules.Current.HandleConfirmation(placeId,
+                    intent.Action == PlaceActivationNotificationService.ActionActivate);
+                return;
+            }
+
             if (intent.Action == PlaceActivationNotificationService.ActionActivate)
             {
                 GeoLog.Write("NOTIFY", $"Activation confirmed for place {placeId}");

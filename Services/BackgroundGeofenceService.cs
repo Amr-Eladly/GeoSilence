@@ -20,24 +20,71 @@ namespace GeoSilence.Services
 {
     public class BackgroundGeofenceService
     {
+#if ANDROID
+        private static readonly SemaphoreSlim RegistrationGate = new(1, 1);
+#endif
+
         public async System.Threading.Tasks.Task RegisterPlacesAsync(IEnumerable<Place> places)
         {
 #if ANDROID
+            // Materialize the UI-owned collection before dispatching platform work.
+            var snapshot = places.ToList();
+            await RegistrationGate.WaitAsync();
             try
             {
-                await RegisterAndroidAsync(places);
+                await System.Threading.Tasks.Task.Run(() => RegisterAndroidAsync(snapshot, replaceAll: true));
             }
             catch (Exception ex)
             {
                 GeoLog.Error("REG", ex);
+            }
+            finally
+            {
+                RegistrationGate.Release();
             }
 #else
             await System.Threading.Tasks.Task.CompletedTask;
 #endif
         }
 
+        public async System.Threading.Tasks.Task UpsertPlaceAsync(Place place)
+        {
 #if ANDROID
-        private static async System.Threading.Tasks.Task RegisterAndroidAsync(IEnumerable<Place> places)
+            await RegistrationGate.WaitAsync();
+            try { await System.Threading.Tasks.Task.Run(() => RegisterAndroidAsync([place], replaceAll: false)); }
+            catch (Exception ex) { GeoLog.Error("REG-ONE", ex); }
+            finally { RegistrationGate.Release(); }
+#else
+            await System.Threading.Tasks.Task.CompletedTask;
+#endif
+        }
+
+        public async System.Threading.Tasks.Task RemovePlaceAsync(int placeId, IReadOnlyCollection<int> remainingPrivateIds)
+        {
+#if ANDROID
+            await RegistrationGate.WaitAsync();
+            try
+            {
+                await System.Threading.Tasks.Task.Run(async () =>
+                {
+                    var context = Android.App.Application.Context;
+                    var client = LocationServices.GetGeofencingClient(context);
+                    await ToTaskAsync(client.RemoveGeofences(new List<string> { placeId.ToString() }));
+                    PruneStaleActiveIds(context, remainingPrivateIds.Select(id => id.ToString()).ToHashSet());
+                    if (remainingPrivateIds.Count == 0)
+                        LocationHeartbeatService.Stop(context);
+                    GeoLog.Write("REG", $"Removed geofence {placeId}");
+                });
+            }
+            catch (Exception ex) { GeoLog.Error("REG-REMOVE-ONE", ex); }
+            finally { RegistrationGate.Release(); }
+#else
+            await System.Threading.Tasks.Task.CompletedTask;
+#endif
+        }
+
+#if ANDROID
+        private static async System.Threading.Tasks.Task RegisterAndroidAsync(IEnumerable<Place> places, bool replaceAll)
         {
             var context = Android.App.Application.Context;
 
@@ -89,13 +136,14 @@ namespace GeoSilence.Services
             // correspond to a registered place. Without this, a deleted place
             // leaves a phantom id behind that prevents mode restoration on
             // exit (because activeIds.Count never reaches 0).
-            PruneStaleActiveIds(context, activePlaces.Select(p => p.Id.ToString()).ToHashSet());
+            if (replaceAll)
+                PruneStaleActiveIds(context, activePlaces.Select(p => p.Id.ToString()).ToHashSet());
 
             var client = LocationServices.GetGeofencingClient(context);
             var pendingIntent = GetGeofencePendingIntent(context);
 
             // 5. Remove old fences first AND WAIT for completion
-            try
+            if (replaceAll) try
             {
                 await ToTaskAsync(client.RemoveGeofences(pendingIntent));
                 GeoLog.Write("REG", "Old geofences removed");
@@ -166,7 +214,7 @@ namespace GeoSilence.Services
         // Bridge Android Gms Task -> .NET Task
         private static System.Threading.Tasks.Task ToTaskAsync(GmsTask gmsTask)
         {
-            var tcs = new TaskCompletionSource<bool>();
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var listener = new TaskCompletionListener(tcs);
             gmsTask.AddOnCompleteListener(listener);
             return tcs.Task;

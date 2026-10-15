@@ -14,6 +14,7 @@ namespace GeoSilence.Services
             await EnsureColumnAsync(db, nameof(PlaceEntity.ActivationType), $"INTEGER NOT NULL DEFAULT {(int)ActivationType.Automatic}");
             await EnsureColumnAsync(db, nameof(PlaceEntity.PlaceType), $"INTEGER NOT NULL DEFAULT {(int)PlaceType.Other}");
             await EnsureColumnAsync(db, nameof(PlaceEntity.Visibility), $"INTEGER NOT NULL DEFAULT {(int)PlaceVisibility.Private}");
+            await EnsureColumnAsync(db, nameof(PlaceEntity.SyncedVisibility), "INTEGER NOT NULL DEFAULT -1");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDeleted), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.IsDirty), "INTEGER NOT NULL DEFAULT 0");
             await EnsureColumnAsync(db, nameof(PlaceEntity.OwnerId), "TEXT NOT NULL DEFAULT ''");
@@ -43,6 +44,11 @@ namespace GeoSilence.Services
 
             foreach (var row in rows)
             {
+                if (row.SyncedVisibility == -1 && !row.IsDirty && row.LastSyncedAtUtcMs != null)
+                {
+                    row.SyncedVisibility = row.Visibility;
+                    changed = true;
+                }
                 if (string.IsNullOrWhiteSpace(row.CloudId))
                 {
                     row.CloudId = Guid.NewGuid().ToString("N");

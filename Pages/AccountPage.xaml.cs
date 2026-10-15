@@ -5,6 +5,9 @@ namespace GeoSilence.Pages
     public partial class AccountPage : ContentPage
     {
         private readonly AccountProfileService _accountProfileService;
+        private Task? _loadTask;
+        private string? _renderedPhotoPath;
+        private bool _updatingPhoto;
 
         public AccountPage(AccountProfileService accountProfileService)
         {
@@ -16,7 +19,8 @@ namespace GeoSilence.Pages
         {
             base.OnAppearing();
             _accountProfileService.ProfileChanged += OnProfileChanged;
-            await LoadAsync();
+            try { await LoadAsync(); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ACCOUNT LOAD: {ex}"); }
         }
 
         protected override void OnDisappearing()
@@ -25,14 +29,19 @@ namespace GeoSilence.Pages
             _accountProfileService.ProfileChanged -= OnProfileChanged;
         }
 
-        private async Task LoadAsync()
+        private Task LoadAsync()
+        {
+            if (_loadTask is { IsCompleted: false })
+                return _loadTask;
+            return _loadTask = LoadCoreAsync();
+        }
+
+        private async Task LoadCoreAsync()
         {
             var profile = await _accountProfileService.EnsureLoadedAsync();
-            var locationsCount = await _accountProfileService.GetLocationsCountAsync();
 
             DisplayNameLabel.Text = string.IsNullOrWhiteSpace(profile.DisplayName) ? "Your Account" : profile.DisplayName;
             EmailLabel.Text = profile.Email;
-            LocationsCountLabel.Text = $"Locations Saved: {locationsCount}";
             RenderAvatar(profile);
         }
 
@@ -47,18 +56,22 @@ namespace GeoSilence.Pages
 
             if (hasPhoto)
             {
-                AvatarImage.Source = ImageSource.FromFile(localPhotoPath);
+                if (_renderedPhotoPath != localPhotoPath)
+                    AvatarImage.Source = ImageSource.FromStream(() => File.OpenRead(localPhotoPath));
+                _renderedPhotoPath = localPhotoPath;
                 AvatarInitialsLabel.Text = string.Empty;
             }
             else
             {
                 AvatarImage.Source = null;
+                _renderedPhotoPath = null;
                 AvatarInitialsLabel.Text = _accountProfileService.GetInitials(profile);
             }
         }
 
         private async void OnEditPhotoClicked(object sender, EventArgs e)
         {
+            if (_updatingPhoto) return;
             var action = await DisplayActionSheet(
                 "Profile Photo",
                 "Cancel",
@@ -70,26 +83,41 @@ namespace GeoSilence.Pages
             if (action == "Cancel" || string.IsNullOrWhiteSpace(action))
                 return;
 
+            if (action == "Take Photo") await ChangePhotoAsync(() => _accountProfileService.UpdateProfilePhotoAsync(true));
+            else if (action == "Choose From Gallery") await ChangePhotoAsync(() => _accountProfileService.UpdateProfilePhotoAsync(false));
+            else if (action == "Remove Photo") await ChangePhotoAsync(_accountProfileService.RemoveProfilePhotoAsync);
+        }
+
+        private async void OnTakePhotoClicked(object sender, EventArgs e) =>
+            await ChangePhotoAsync(() => _accountProfileService.UpdateProfilePhotoAsync(true));
+
+        private async Task ChangePhotoAsync(Func<Task> update)
+        {
+            if (_updatingPhoto) return;
+            _updatingPhoto = true;
+            TakePhotoButton.IsEnabled = PhotoOptionsButton.IsEnabled = false;
+            PhotoActivity.IsVisible = PhotoActivity.IsRunning = true;
             try
             {
-                switch (action)
-                {
-                    case "Take Photo":
-                        await _accountProfileService.UpdateProfilePhotoAsync(useCamera: true);
-                        break;
-                    case "Choose From Gallery":
-                        await _accountProfileService.UpdateProfilePhotoAsync(useCamera: false);
-                        break;
-                    case "Remove Photo":
-                        await _accountProfileService.RemoveProfilePhotoAsync();
-                        break;
-                }
-
+                await update();
+                // Also refresh local-only photos when cloud storage is unavailable.
+                _renderedPhotoPath = null;
+                AvatarImage.Source = null;
                 await LoadAsync();
+            }
+            catch (PermissionException)
+            {
+                await DisplayAlert("Camera permission", "Allow camera access in your device settings to take a profile photo.", "OK");
             }
             catch (Exception ex)
             {
                 await DisplayAlert("Profile Photo", ex.Message, "OK");
+            }
+            finally
+            {
+                PhotoActivity.IsVisible = PhotoActivity.IsRunning = false;
+                TakePhotoButton.IsEnabled = PhotoOptionsButton.IsEnabled = true;
+                _updatingPhoto = false;
             }
         }
 
@@ -133,7 +161,16 @@ namespace GeoSilence.Pages
 
         private async void OnProfileChanged(object? sender, EventArgs e)
         {
-            await MainThread.InvokeOnMainThreadAsync(LoadAsync);
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    // A photo update may overwrite the same local filename.
+                    _renderedPhotoPath = null;
+                    return LoadAsync();
+                });
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"ACCOUNT LOAD: {ex}"); }
         }
     }
 }
