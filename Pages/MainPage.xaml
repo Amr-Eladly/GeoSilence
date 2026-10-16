@@ -407,7 +407,7 @@
                         </Grid>
                         <Slider
                             x:Name="PlaceRadiusSlider"
-                            Minimum="25"
+                            Minimum="10"
                             Maximum="200"
                             Value="50"
                             ValueChanged="OnRadiusSliderValueChanged"

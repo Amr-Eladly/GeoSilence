@@ -876,9 +876,9 @@ namespace GeoSilence.Pages
                 return false;
             }
 
-            if (radius < 25 || radius > 5000)
+            if (radius < 10 || radius > 200)
             {
-                await DisplayAlert("Place", "Radius must be between 25 and 5000 meters.", "OK");
+                await DisplayAlert("Place", "Radius must be between 10 and 200 meters.", "OK");
                 return false;
             }
 
